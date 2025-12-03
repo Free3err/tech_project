@@ -16,5 +16,5 @@ def check_order(order_data):
                     return True
 
             return False
-    except Exception as e:
-        print(e)
+    except:
+        return False
