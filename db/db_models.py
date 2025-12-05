@@ -1,6 +1,5 @@
 from sqlalchemy import Column, Integer, ForeignKey, String
 from sqlalchemy.orm import relationship
-
 from .db import Base
 
 
@@ -11,6 +10,7 @@ class Order(Base):
     customer_id = Column(Integer, ForeignKey("customers.id"))
 
     customer = relationship("Customer", back_populates="orders")
+
 
 class Customer(Base):
     __tablename__ = 'customers'

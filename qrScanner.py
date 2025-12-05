@@ -1,10 +1,11 @@
 import cv2
 from playsound3 import playsound
 from db.functions import check_order
+import serialConnection
 
 
 def qr_scanner():
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
     detector = cv2.QRCodeDetector()
 
     last_data = None
@@ -26,8 +27,11 @@ def qr_scanner():
                     last_data = data
                     if check_order(data):
                         playsound('assets/successScan.wav')
+                        serialConnection.ser.write(b"SUCCESS_SCAN\n")
+                        serialConnection.ser.write(b"GO_TO_THE_ORDER\n")
                     else:
                         playsound("assets/failureScan.wav")
+                        serialConnection.ser.write(b"FAILURE_SCAN\n")
 
         cv2.imshow("QR Scanner", frame)
         if cv2.waitKey(10) & 0xFF == 27:

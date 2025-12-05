@@ -19,5 +19,3 @@ if __name__ == '__main__':
         order = Order(customer_id=customer.id)
         session.add(order)
         session.commit()
-
-
