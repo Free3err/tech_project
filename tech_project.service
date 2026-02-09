@@ -1,0 +1,16 @@
+[Unit]
+Description=Tech Project Python Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/roman/tech_project
+ExecStart=/home/roman/tech_project/.venv/bin/python /home/roman/tech_project/main.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

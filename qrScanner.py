@@ -28,7 +28,6 @@ def qr_scanner():
                     if check_order(data):
                         playsound('assets/successScan.wav')
                         serialConnection.ser.write(b"SUCCESS_SCAN\n")
-                        serialConnection.ser.write(b"GO_TO_THE_ORDER\n")
                     else:
                         playsound("assets/failureScan.wav")
                         serialConnection.ser.write(b"FAILURE_SCAN\n")
