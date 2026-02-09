@@ -1,0 +1,75 @@
+# Карта окружения склада для RelayBot
+# Координатная система: начало координат (0,0) в домашней позиции
+# Ось X направлена на восток, ось Y направлена на север
+
+# Размеры карты (метры)
+width: 10.0
+height: 10.0
+
+# Разрешение карты (метры на пиксель)
+resolution: 0.05
+
+# Начало координат карты (метры)
+origin:
+  x: -2.0
+  y: -2.0
+
+# Сетка занятости (0 = свободно, 1 = занято)
+# Размер сетки: width/resolution x height/resolution = 200x200
+# Для простоты, определяем препятствия как список прямоугольников
+
+obstacles:
+  # Стены периметра
+  - type: rectangle
+    x: -2.0
+    y: -2.0
+    width: 0.1
+    height: 12.0
+    
+  - type: rectangle
+    x: -2.0
+    y: -2.0
+    width: 12.0
+    height: 0.1
+    
+  - type: rectangle
+    x: 10.0
+    y: -2.0
+    width: 0.1
+    height: 12.0
+    
+  - type: rectangle
+    x: -2.0
+    y: 10.0
+    width: 12.0
+    height: 0.1
+  
+  # Стеллажи склада
+  - type: rectangle
+    x: 3.0
+    y: 1.0
+    width: 1.0
+    height: 3.0
+    
+  - type: rectangle
+    x: 6.0
+    y: 1.0
+    width: 1.0
+    height: 3.0
+
+# Зоны интереса
+zones:
+  home:
+    x: 0.0
+    y: 0.0
+    radius: 0.5
+    
+  warehouse:
+    x: 5.0
+    y: 3.0
+    radius: 0.5
+    
+  delivery:
+    x: 0.0
+    y: 0.0
+    radius: 3.0

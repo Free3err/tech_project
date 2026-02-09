@@ -1,0 +1,8 @@
+# Директория для аудио файлов
+# Необходимые файлы:
+# - request_qr.wav
+# - order_accepted.wav
+# - order_rejected.wav
+# - delivery_greeting.wav
+# - error.wav
+# - order_1.wav ... order_100.wav (опционально)
