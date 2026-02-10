@@ -283,7 +283,7 @@ def read_sensor_data(timeout: float = 0.5) -> Optional[Dict[str, Any]]:
             return None
         
         # Парсинг данных в зависимости от типа
-        if line.startsWith("IR:"):
+        if line.startswith("IR:"):
             # Формат: IR:<distance>
             distance_str = line[3:]
             ir_distance = float(distance_str)

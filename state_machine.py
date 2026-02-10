@@ -413,8 +413,9 @@ class StateMachine:
             # Возврат в состояние ожидания
             self.transition_to(State.WAITING)
         
-        # Сброс флага для следующего использования
+        # Сброс флагов для следующего использования
         delattr(self, '_verifying_started')
+        self._verification_callback_received = False
     
     def update_navigating_to_warehouse_state(self) -> None:
         """
