@@ -321,18 +321,23 @@ class StateMachine:
         person_position = self.lidar.detect_person()
         
         if person_position is None:
-            # Клиент исчез
-            self.logger.warning("Клиент исчез из зоны обнаружения")
+            # Человек вышел за пределы LIDAR_MAX_RANGE
+            self.logger.info("Человек вышел за пределы зоны обнаружения")
             self.navigation.stop()
-            self.transition_to(State.WAITING)
+            
+            # Запрос QR кода
+            self.audio.announce_request_qr()
+            
+            # Переход к проверке заказа
+            self.transition_to(State.VERIFYING)
             return
         
         # Расстояние до человека (person_position[0] это расстояние)
         distance_to_customer = person_position[0]
         
-        # Проверка достижения клиента (остановка на безопасном расстоянии)
+        # Проверка достижения минимального безопасного расстояния
         if distance_to_customer < config.CUSTOMER_APPROACH_DISTANCE:
-            self.logger.info(f"Достигнут клиент, расстояние: {distance_to_customer:.2f}м")
+            self.logger.info(f"Достигнуто минимальное расстояние: {distance_to_customer:.2f}м")
             self.navigation.stop()
             
             # Сохранение позиции клиента для возврата
@@ -342,19 +347,41 @@ class StateMachine:
                 self.context.current_position.theta
             )
             
+            # Запрос QR кода
+            self.audio.announce_request_qr()
+            
             # Переход к проверке заказа
             self.transition_to(State.VERIFYING)
             return
         
-        # Движение к человеку: медленная скорость вперед
-        # Скорость пропорциональна расстоянию (чем ближе, тем медленнее)
-        speed = 120
+        # Следование за человеком с коррекцией направления
+        # person_position = (distance, angle) - расстояние и угол к человеку
+        distance_to_customer = person_position[0]
+        angle_to_customer = person_position[1]  # Угол в радианах
         
-        self.logger.debug(f"Подъезд к клиенту: расстояние={distance_to_customer:.2f}м, скорость={speed}")
+        # Базовая скорость
+        base_speed = 120
         
-        # Отправка команды движения вперед
+        # Коррекция направления на основе угла
+        # Если угол положительный - человек справа, нужно повернуть вправо
+        # Если угол отрицательный - человек слева, нужно повернуть влево
+        
+        # Коэффициент поворота (чем больше угол, тем сильнее поворот)
+        turn_factor = angle_to_customer * 100  # Масштабируем угол
+        
+        # Вычисление скоростей для левого и правого моторов
+        left_speed = base_speed - turn_factor
+        right_speed = base_speed + turn_factor
+        
+        # Ограничение скоростей в диапазоне 0-255
+        left_speed = int(max(0, min(255, left_speed)))
+        right_speed = int(max(0, min(255, right_speed)))
+        
+        self.logger.debug(f"Следование: расст={distance_to_customer:.2f}м, угол={angle_to_customer:.2f}рад, L={left_speed}, R={right_speed}")
+        
+        # Отправка команды движения
         try:
-            self.serial.send_motor_command(speed, speed, 0, 0)  # dir=0 для движения вперед
+            self.serial.send_motor_command(left_speed, right_speed, 0, 0)  # dir=0 для движения вперед
         except Exception as e:
             self.logger.error(f"Ошибка отправки команды движения: {e}")
             self.navigation.stop()

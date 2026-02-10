@@ -70,18 +70,18 @@ class LiDARInterface:
         if len(scan) < 3:
             return None
         
+        # Вычисление среднего расстояния и угла
         avg_distance = sum(p.distance for p in scan) / len(scan)
+        avg_angle = sum(p.angle for p in scan) / len(scan)
         
         # Проверка диапазона обнаружения человека
         if avg_distance < config.LIDAR_MIN_RANGE or avg_distance > config.LIDAR_MAX_RANGE:
             return None
         
-        x = avg_distance * math.cos(0)
-        y = avg_distance * math.sin(0)
+        self.logger.info(f"Обнаружено {len(scan)} точек, расстояние {avg_distance:.2f}м, угол {avg_angle:.2f}рад")
         
-        self.logger.info(f"Обнаружено {len(scan)} точек, расстояние {avg_distance:.2f}м")
-        
-        return (x, y)
+        # Возвращаем (расстояние, угол) вместо (x, y)
+        return (avg_distance, avg_angle)
     
     def get_obstacles(self, min_distance: float) -> List[Tuple[float, float]]:
         scan = self.get_scan()
