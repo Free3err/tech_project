@@ -325,10 +325,7 @@ class StateMachine:
             self.logger.info("Человек вышел за пределы зоны обнаружения")
             self.navigation.stop()
             
-            # Запрос QR кода
-            self.audio.request_qr_code()
-            
-            # Переход к проверке заказа
+            # Переход к проверке заказа (запрос QR будет в VERIFYING)
             self.transition_to(State.VERIFYING)
             return
         
@@ -347,10 +344,7 @@ class StateMachine:
                 self.context.current_position.theta
             )
             
-            # Запрос QR кода
-            self.audio.request_qr_code()
-            
-            # Переход к проверке заказа
+            # Переход к проверке заказа (запрос QR будет в VERIFYING)
             self.transition_to(State.VERIFYING)
             return
         
