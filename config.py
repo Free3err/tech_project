@@ -60,7 +60,7 @@ DATABASE_URL = "sqlite:///assets/orders.db"
 # Сервопривод
 BOX_OPEN_ANGLE = 113
 BOX_CLOSE_ANGLE_1 = 35
-BOX_CLOSE_ANGLE_2 = 58
+BOX_CLOSE_ANGLE_2 = 62
 BOX_CLOSE_DELAY = 0.5  # Задержка между этапами закрытия (секунды)
 SERVO_SPEED = 45
 

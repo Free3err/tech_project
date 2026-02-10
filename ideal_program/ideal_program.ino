@@ -428,7 +428,7 @@ void setup() {
   delay(500);
   boxServo.write(35);
   delay(500);
-  boxServo.write(58);
+  boxServo.write(62);
 }
 
 // === Главный цикл ===
