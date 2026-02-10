@@ -58,9 +58,14 @@ AUDIO_ERROR = 'error.wav'
 DATABASE_URL = "sqlite:///assets/orders.db"
 
 # Сервопривод
-BOX_OPEN_ANGLE = 90
-BOX_CLOSE_ANGLE = 0
+BOX_OPEN_ANGLE = 113
+BOX_CLOSE_ANGLE_1 = 35
+BOX_CLOSE_ANGLE_2 = 58
+BOX_CLOSE_DELAY = 0.5  # Задержка между этапами закрытия (секунды)
 SERVO_SPEED = 45
+
+# Задержки состояний
+VERIFYING_TO_LOADING_DELAY = 5.0  # Задержка между VERIFYING и LOADING (секунды)
 
 # Карта (для комнаты 2x1 метр)
 MAP_FILE = 'assets/maps/warehouse_map.yaml'

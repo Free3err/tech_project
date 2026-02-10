@@ -365,7 +365,17 @@ class StateMachine:
         
         Робот запрашивает QR код у клиента и проверяет заказ.
         Повторяет сканирование пока человек в зоне видимости.
+        После успешной проверки ждет 5 секунд перед переходом к LOADING.
         """
+        # Проверка задержки перед переходом к LOADING
+        if hasattr(self, '_loading_delay_start'):
+            elapsed = time.time() - self._loading_delay_start
+            if elapsed >= config.VERIFYING_TO_LOADING_DELAY:
+                delattr(self, '_loading_delay_start')
+                self.logger.info("Задержка завершена, переход к загрузке")
+                self.transition_to(State.LOADING)
+            return
+        
         # Проверка наличия человека в зоне видимости
         person_position = self.lidar.detect_person()
         
@@ -430,8 +440,9 @@ class StateMachine:
             delattr(self, '_verifying_started')
             self._verification_callback_received = False
             
-            # Переход к загрузке
-            self.transition_to(State.LOADING)
+            # Установка времени для задержки перед LOADING
+            self._loading_delay_start = time.time()
+            self.logger.info(f"Ожидание {config.VERIFYING_TO_LOADING_DELAY}с перед загрузкой")
         else:
             self.logger.warning(f"Заказ не прошел проверку: order_id={order_id}")
             
@@ -463,9 +474,9 @@ class StateMachine:
         
         Погрузка:
         - Произносит номер заказа
-        - Открывает серво на 113°
+        - Открывает серво на BOX_OPEN_ANGLE
         - Ждет таймаут из конфига
-        - Закрывает: 43°, через 500мс 58°
+        - Закрывает: BOX_CLOSE_ANGLE_1, через BOX_CLOSE_DELAY BOX_CLOSE_ANGLE_2
         """
         if not hasattr(self, '_loading_started'):
             self._loading_started = True
@@ -476,9 +487,9 @@ class StateMachine:
             if self.context.current_order_id is not None:
                 self.audio.announce_order_number(self.context.current_order_id)
             
-            # Открытие серво на 113°
-            self.serial.send_servo_command(113)
-            self.logger.info("Открытие коробки для загрузки (113°)")
+            # Открытие серво
+            self.serial.send_servo_command(config.BOX_OPEN_ANGLE)
+            self.logger.info(f"Открытие коробки для загрузки ({config.BOX_OPEN_ANGLE}°)")
         
         elapsed = time.time() - self._loading_step_start
         
@@ -487,16 +498,16 @@ class StateMachine:
             if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
                 self._loading_step = 1
                 self._loading_step_start = time.time()
-                # Закрытие: первый этап - 43°
-                self.serial.send_servo_command(43)
-                self.logger.info("Закрытие коробки: этап 1 (43°)")
+                # Закрытие: первый этап
+                self.serial.send_servo_command(config.BOX_CLOSE_ANGLE_1)
+                self.logger.info(f"Закрытие коробки: этап 1 ({config.BOX_CLOSE_ANGLE_1}°)")
         
         elif self._loading_step == 1:
-            # Ожидание 500мс перед вторым этапом закрытия
-            if elapsed >= 0.5:
-                # Закрытие: второй этап - 58°
-                self.serial.send_servo_command(58)
-                self.logger.info("Закрытие коробки: этап 2 (58°)")
+            # Ожидание перед вторым этапом закрытия
+            if elapsed >= config.BOX_CLOSE_DELAY:
+                # Закрытие: второй этап
+                self.serial.send_servo_command(config.BOX_CLOSE_ANGLE_2)
+                self.logger.info(f"Закрытие коробки: этап 2 ({config.BOX_CLOSE_ANGLE_2}°)")
                 
                 # Очистка флагов
                 delattr(self, '_loading_started')
@@ -520,9 +531,9 @@ class StateMachine:
         
         Выдача посылки клиенту:
         - Воспроизведение аудио приветствия
-        - Открытие серво на 113°
+        - Открытие серво на BOX_OPEN_ANGLE
         - Ожидание таймаута из конфига (DELIVERY_TIMEOUT)
-        - Закрытие: 43°, через 500мс 58°
+        - Закрытие: BOX_CLOSE_ANGLE_1, через BOX_CLOSE_DELAY BOX_CLOSE_ANGLE_2
         - Ожидание 10 секунд
         - Переход в WAITING
         """
@@ -534,9 +545,9 @@ class StateMachine:
             # Приветствие клиента
             self.audio.greet_delivery()
             
-            # Открытие серво на 113°
-            self.serial.send_servo_command(113)
-            self.logger.info("Открытие коробки для выдачи (113°)")
+            # Открытие серво
+            self.serial.send_servo_command(config.BOX_OPEN_ANGLE)
+            self.logger.info(f"Открытие коробки для выдачи ({config.BOX_OPEN_ANGLE}°)")
         
         elapsed = time.time() - self._delivery_step_start
         
@@ -545,18 +556,18 @@ class StateMachine:
             if elapsed >= config.DELIVERY_TIMEOUT:
                 self._delivery_step = 1
                 self._delivery_step_start = time.time()
-                # Закрытие: первый этап - 43°
-                self.serial.send_servo_command(43)
-                self.logger.info("Закрытие коробки: этап 1 (43°)")
+                # Закрытие: первый этап
+                self.serial.send_servo_command(config.BOX_CLOSE_ANGLE_1)
+                self.logger.info(f"Закрытие коробки: этап 1 ({config.BOX_CLOSE_ANGLE_1}°)")
         
         elif self._delivery_step == 1:
-            # Ожидание 500мс перед вторым этапом закрытия
-            if elapsed >= 0.5:
+            # Ожидание перед вторым этапом закрытия
+            if elapsed >= config.BOX_CLOSE_DELAY:
                 self._delivery_step = 2
                 self._delivery_step_start = time.time()
-                # Закрытие: второй этап - 58°
-                self.serial.send_servo_command(58)
-                self.logger.info("Закрытие коробки: этап 2 (58°)")
+                # Закрытие: второй этап
+                self.serial.send_servo_command(config.BOX_CLOSE_ANGLE_2)
+                self.logger.info(f"Закрытие коробки: этап 2 ({config.BOX_CLOSE_ANGLE_2}°)")
         
         elif self._delivery_step == 2:
             # Ожидание 10 секунд перед возвратом в WAITING

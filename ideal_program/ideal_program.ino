@@ -9,7 +9,7 @@
 #define IK_SENS A1   // ИК-датчик
 #define LED_PIN1 11  // Глаз 1
 #define LED_PIN2 12  // Глаз 2
-#define SERVO_PIN 9  // Сервопривод коробки
+#define SERVO_PIN 10  // Сервопривод коробки
 
 // Пины энкодеров
 #define ENCODER_L_A 2   // Левый энкодер, канал A
@@ -313,7 +313,7 @@ void parseMotorCommand(String cmd) {
 // === Управление сервоприводом ===
 // Функция установки угла сервопривода
 void setServoAngle(int angle) {
-  // Ограничение угла в диапазоне 0-180 градусов
+  // Ограничение угла в диапазоне 0-90 градусов
   angle = constrain(angle, 0, 180);
   
   boxServo.write(angle);
@@ -329,7 +329,7 @@ void parseServoCommand(String cmd) {
   int angle = cmd.toInt();
   
   if (angle < 0 || angle > 180) {
-    Serial.println("ERROR: Invalid SERVO angle (must be 0-180)");
+    Serial.println("ERROR: Invalid SERVO angle (must be 0-90)");
     return;
   }
   
@@ -409,8 +409,8 @@ void setup() {
 
   // Инициализация сервопривода
   boxServo.attach(SERVO_PIN);
-  boxServo.write(0);  // Начальная позиция - закрыто
-  currentServoAngle = 0;
+  // Не устанавливаем начальную позицию - серво остается на своем месте
+  currentServoAngle = 0;  // Неизвестная позиция, будет установлена командой
 
   // Инициализация ленты
   FastLED.addLeds<CHIPSET, LED_PIN1, COLOR_ORDER>(leds1, NUM_LEDS);
@@ -422,6 +422,13 @@ void setup() {
   lastBlink = millis();
   lastEncoderReport = millis();
   lastIRReport = millis();
+
+  // Серво
+  boxServo.write(112);
+  delay(500);
+  boxServo.write(35);
+  delay(500);
+  boxServo.write(58);
 }
 
 // === Главный цикл ===
