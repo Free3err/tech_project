@@ -59,41 +59,60 @@ def main():
             elif cmd == 'w':
                 # Вперед
                 print("→ Вперед")
-                send_motor_command(140, 140, 1, 1)
+                serialConnection.send_motor_command(140, 140, 1, 1)
                 
             elif cmd == 's':
                 # Назад
                 print("→ Назад")
-                send_motor_command(140, 140, 0, 0)
+                serialConnection.send_motor_command(140, 140, 0, 0)
                 
             elif cmd == 'a':
                 # Поворот влево
                 print("→ Поворот влево")
-                send_motor_command(100, 100, 0, 1)
+                serialConnection.send_motor_command(100, 100, 0, 1)
                 
             elif cmd == 'd':
                 # Поворот вправо
                 print("→ Поворот вправо")
-                send_motor_command(100, 100, 1, 0)
+                serialConnection.send_motor_command(100, 100, 1, 0)
                 
             elif cmd == 'x':
                 # Стоп
                 print("→ Стоп")
-                send_motor_command(0, 0, 0, 0)
+                serialConnection.send_motor_command(0, 0, 0, 0)
+                
+            elif cmd == '1':
+             
+            elif cmd == 'w':
+                # Вперед
+                send_motor_command(140, 140, 1, 1)
+                
+            elif cmd == 's':
+                # Назад
+                send_motor_command(140, 140, 0, 0)
+                
+            elif cmd == 'a':
+                # Поворот влево
+                send_motor_command(100, 100, 0, 1)
+                
+            elif cmd == 'd':
+                # Поворот вправо
+                send_motor_command(100, 100, 1, 0)
+                
+            elif cmd == 'x':
+                # Стоп
+                stop_motors()
                 
             elif cmd == '1':
                 # Серво 112°
-                print("→ Серво: 112°")
                 send_servo_command(112)
                 
             elif cmd == '2':
                 # Серво 35°
-                print("→ Серво: 35°")
                 send_servo_command(35)
                 
             elif cmd == '3':
                 # Серво 58°
-                print("→ Серво: 58°")
                 send_servo_command(58)
                 
             else:
@@ -106,10 +125,7 @@ def main():
     finally:
         # Остановка моторов перед выходом
         print("\nОстановка моторов...")
-        try:
-            send_motor_command(0, 0, 0, 0)
-        except:
-            pass
+        stop_motors()
         
         # Закрытие соединения
         if serialConnection.ser and serialConnection.ser.is_open:

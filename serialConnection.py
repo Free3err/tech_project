@@ -2,7 +2,6 @@ import serial
 import time
 import logging
 from typing import Optional, Dict, Any
-from collections import deque
 
 
 # ============================================================================
@@ -19,11 +18,6 @@ class SerialTimeoutError(SerialCommunicationError):
     pass
 
 
-class CommandQueueOverflowError(SerialCommunicationError):
-    """Ошибка переполнения очереди команд"""
-    pass
-
-
 # ============================================================================
 # ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
 # ============================================================================
@@ -31,13 +25,6 @@ class CommandQueueOverflowError(SerialCommunicationError):
 ser = None
 logger = logging.getLogger(__name__)
 
-# Очередь команд для управления переполнением
-command_queue = deque(maxlen=10)  # Максимум 10 команд в очереди
-
-# Счетчики ошибок
-serial_timeout_count = 0
-serial_error_count = 0
-last_successful_communication = time.time()
 
 def init_serial(port='COM10', baudrate=9600):
     """
@@ -50,13 +37,12 @@ def init_serial(port='COM10', baudrate=9600):
     Raises:
         SerialCommunicationError: Если не удалось установить соединение
     """
-    global ser, logger, last_successful_communication
+    global ser, logger
     
     try:
         ser = serial.Serial(port, baudrate, timeout=1.0)
         time.sleep(2)  # Ожидание инициализации Arduino
         logger.info(f"Последовательное соединение установлено на порту {port}")
-        last_successful_communication = time.time()
     except serial.SerialException as e:
         logger.error(f"Ошибка инициализации последовательного соединения: {e}")
         raise SerialCommunicationError(f"Не удалось подключиться к порту {port}: {e}")
@@ -65,81 +51,9 @@ def init_serial(port='COM10', baudrate=9600):
         raise SerialCommunicationError(f"Критическая ошибка инициализации: {e}")
 
 
-def _send_command_with_retry(command: str, max_retries: int = 3) -> bool:
-    """
-    Отправка команды с повторными попытками и экспоненциальной задержкой
-    
-    Args:
-        command: Команда для отправки
-        max_retries: Максимальное количество попыток
-        
-    Returns:
-        True если команда отправлена успешно, False иначе
-        
-    Raises:
-        SerialTimeoutError: Если все попытки исчерпаны
-    """
-    global ser, logger, serial_timeout_count, serial_error_count, last_successful_communication
-    
-    if ser is None:
-        raise RuntimeError("Serial connection not initialized. Call init_serial() first.")
-    
-    for attempt in range(max_retries):
-        try:
-            ser.write(command.encode())
-            
-            # Ожидание подтверждения (опционально)
-            # В текущей реализации Arduino не всегда отправляет ACK
-            
-            # Успешная отправка
-            last_successful_communication = time.time()
-            if serial_timeout_count > 0 or serial_error_count > 0:
-                logger.info("Связь с Arduino восстановлена")
-                serial_timeout_count = 0
-                serial_error_count = 0
-            
-            return True
-            
-        except serial.SerialTimeoutException as e:
-            serial_timeout_count += 1
-            logger.warning(f"Таймаут отправки команды (попытка {attempt + 1}/{max_retries}): {e}")
-            
-            if attempt < max_retries - 1:
-                # Экспоненциальная задержка
-                delay = 0.1 * (2 ** attempt)
-                time.sleep(delay)
-            else:
-                logger.error(f"Не удалось отправить команду после {max_retries} попыток")
-                raise SerialTimeoutError(f"Таймаут отправки команды: {command}")
-                
-        except serial.SerialException as e:
-            serial_error_count += 1
-            logger.error(f"Ошибка последовательной связи (попытка {attempt + 1}/{max_retries}): {e}")
-            
-            if attempt < max_retries - 1:
-                # Попытка переподключения
-                try:
-                    ser.close()
-                    time.sleep(0.5)
-                    ser.open()
-                    logger.info("Переподключение успешно")
-                except Exception as reconnect_error:
-                    logger.error(f"Ошибка переподключения: {reconnect_error}")
-            else:
-                raise SerialCommunicationError(f"Ошибка связи: {e}")
-                
-        except Exception as e:
-            serial_error_count += 1
-            logger.error(f"Неожиданная ошибка отправки команды: {e}")
-            if attempt == max_retries - 1:
-                raise SerialCommunicationError(f"Критическая ошибка отправки: {e}")
-    
-    return False
-
-
 def send_motor_command(left_speed: int, right_speed: int, left_dir: int, right_dir: int) -> None:
     """
-    Отправить команду управления моторами с повторными попытками
+    Отправить команду управления моторами
     
     Args:
         left_speed: Скорость левого мотора (0-255)
@@ -150,7 +64,6 @@ def send_motor_command(left_speed: int, right_speed: int, left_dir: int, right_d
     Raises:
         ValueError: Если параметры вне допустимого диапазона
         RuntimeError: Если последовательное соединение не инициализировано
-        SerialTimeoutError: Если не удалось отправить команду после повторных попыток
     """
     global ser
     
@@ -173,13 +86,13 @@ def send_motor_command(left_speed: int, right_speed: int, left_dir: int, right_d
     # Логирование команды мотора
     logger.debug(f"Отправка команды мотора: L={left_speed}({left_dir}) R={right_speed}({right_dir})")
     
-    # Отправка с повторными попытками
-    _send_command_with_retry(command)
+    # Отправка команды
+    ser.write(command.encode())
 
 
 def send_servo_command(angle: int) -> None:
     """
-    Отправить команду сервоприводу с повторными попытками
+    Отправить команду сервоприводу
     
     Args:
         angle: Угол сервопривода (0-180 градусов)
@@ -187,7 +100,6 @@ def send_servo_command(angle: int) -> None:
     Raises:
         ValueError: Если угол вне допустимого диапазона
         RuntimeError: Если последовательное соединение не инициализировано
-        SerialTimeoutError: Если не удалось отправить команду после повторных попыток
     """
     global ser
     
@@ -204,13 +116,13 @@ def send_servo_command(angle: int) -> None:
     # Логирование команды сервопривода
     logger.debug(f"Отправка команды сервопривода: угол={angle}°")
     
-    # Отправка с повторными попытками
-    _send_command_with_retry(command)
+    # Отправка команды
+    ser.write(command.encode())
 
 
 def send_led_command(command: str) -> None:
     """
-    Отправить команду LED эффекта с повторными попытками
+    Отправить команду LED эффекта
     
     Args:
         command: Команда LED (SUCCESS_SCAN, FAILURE_SCAN, LED_IDLE, LED_WAITING, LED_MOVING, STOP)
@@ -218,7 +130,6 @@ def send_led_command(command: str) -> None:
     Raises:
         ValueError: Если команда не поддерживается
         RuntimeError: Если последовательное соединение не инициализировано
-        SerialTimeoutError: Если не удалось отправить команду после повторных попыток
     """
     global ser
     
@@ -237,8 +148,8 @@ def send_led_command(command: str) -> None:
     # Логирование LED команды
     logger.debug(f"Отправка LED команды: {command}")
     
-    # Отправка с повторными попытками
-    _send_command_with_retry(cmd)
+    # Отправка команды
+    ser.write(cmd.encode())
 
 
 def read_sensor_data(timeout: float = 0.5) -> Optional[Dict[str, Any]]:
