@@ -29,8 +29,8 @@ class BoxController:
         """
         self.serial_comm = serial_comm
         self._is_open = False
-        self._current_angle = config.BOX_CLOSE_ANGLE
-        self._target_angle = config.BOX_CLOSE_ANGLE
+        self._current_angle = config.BOX_CLOSE_ANGLE2
+        self._target_angle = config.BOX_CLOSE_ANGLE2
         
         logger.info("BoxController initialized")
         
