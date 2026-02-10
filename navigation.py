@@ -361,6 +361,11 @@ class NavigationSystem:
                 particle.theta = self._normalize_angle(particle.theta + noisy_dtheta)
             
             # Шаг 2: Обновление весов на основе LiDAR сканирования
+            # Проверка что LiDAR доступен
+            if self.lidar is None:
+                self.logger.warning("LiDAR недоступен, пропуск обновления весов")
+                return
+            
             lidar_scan = self.lidar.get_scan()
             
             if lidar_scan and len(lidar_scan) > 0:
