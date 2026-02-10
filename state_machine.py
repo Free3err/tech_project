@@ -362,26 +362,9 @@ class StateMachine:
         # Базовая скорость
         base_speed = 120
         
-        # Коррекция направления на основе угла
-        # Если угол положительный - человек справа, нужно повернуть вправо
-        # Если угол отрицательный - человек слева, нужно повернуть влево
-        
-        # Коэффициент поворота (чем больше угол, тем сильнее поворот)
-        turn_factor = angle_to_customer * 100  # Масштабируем угол
-        
-        # Вычисление скоростей для левого и правого моторов
-        left_speed = base_speed - turn_factor
-        right_speed = base_speed + turn_factor
-        
-        # Ограничение скоростей в диапазоне 0-255
-        left_speed = int(max(0, min(255, left_speed)))
-        right_speed = int(max(0, min(255, right_speed)))
-        
-        self.logger.debug(f"Следование: расст={distance_to_customer:.2f}м, угол={angle_to_customer:.2f}рад, L={left_speed}, R={right_speed}")
-        
         # Отправка команды движения
         try:
-            self.serial.send_motor_command(left_speed, right_speed, 0, 0)  # dir=0 для движения вперед
+            self.serial.send_motor_command(base, base, 0, 0)  # dir=0 для движения вперед
         except Exception as e:
             self.logger.error(f"Ошибка отправки команды движения: {e}")
             self.navigation.stop()
