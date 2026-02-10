@@ -96,6 +96,11 @@ class StateMachine:
         self._localization_skip_counter = 0
         self._localization_skip_rate = 2  # Обновлять локализацию каждую 2-ю итерацию
         
+        # ПИД регулятор для отслеживания человека
+        self._pid_error_prev = 0.0
+        self._pid_error_integral = 0.0
+        self._pid_last_time = time.time()
+        
         self.logger.info(f"Машина состояний инициализирована в состоянии {self.current_state.value}")
     
     def transition_to(self, new_state: State) -> None:
@@ -308,7 +313,7 @@ class StateMachine:
         """
         Обновление состояния APPROACHING
         
-        Робот движется к обнаруженному клиенту.
+        Робот движется к обнаруженному клиенту используя ПИД регулятор.
         Непрерывно отслеживает позицию клиента и проверяет расстояние.
         """
         # Проверка наличия целевой позиции
@@ -324,6 +329,7 @@ class StateMachine:
             # Человек вышел за пределы LIDAR_MAX_RANGE
             self.logger.info("Человек вышел за пределы зоны обнаружения")
             self.navigation.stop()
+            self._reset_pid()
             
             # Переход к проверке заказа (запрос QR будет в VERIFYING)
             self.transition_to(State.VERIFYING)
@@ -331,11 +337,13 @@ class StateMachine:
         
         # Расстояние до человека (person_position[0] это расстояние)
         distance_to_customer = person_position[0]
+        angle_to_customer = person_position[1]  # Угол в радианах
         
         # Проверка достижения минимального безопасного расстояния
         if distance_to_customer < config.CUSTOMER_APPROACH_DISTANCE:
             self.logger.info(f"Достигнуто минимальное расстояние: {distance_to_customer:.2f}м")
             self.navigation.stop()
+            self._reset_pid()
             
             # Сохранение позиции клиента для возврата
             self.context.customer_position = Position(
@@ -348,26 +356,95 @@ class StateMachine:
             self.transition_to(State.VERIFYING)
             return
         
-        # Следование за человеком с коррекцией направления
-        # person_position = (distance, angle) - расстояние и угол к человеку
-        distance_to_customer = person_position[0]
-        angle_to_customer = person_position[1]  # Угол в радианах
+        # ПИД регулятор для управления скоростью на основе расстояния
+        speed = self._calculate_pid_speed(distance_to_customer)
         
-        # Базовая скорость
-        base_speed = 140
+        # Ограничение скорости
+        speed = max(config.PID_PERSON_TRACKING_MIN_SPEED, 
+                   min(config.PID_PERSON_TRACKING_MAX_SPEED, speed))
+        
+        # Коррекция направления на основе угла
+        # Если угол большой, корректируем скорости моторов для поворота
+        angle_threshold = 0.2  # ~11 градусов
+        
+        left_speed = speed
+        right_speed = speed
+        
+        if abs(angle_to_customer) > angle_threshold:
+            # Поворот: уменьшаем скорость одного мотора
+            turn_factor = min(1.0, abs(angle_to_customer) / 0.5)
+            
+            if angle_to_customer > 0:  # Человек справа
+                left_speed = int(speed * (1.0 - turn_factor * 0.5))
+            else:  # Человек слева
+                right_speed = int(speed * (1.0 - turn_factor * 0.5))
         
         # Отправка команды движения
         try:
-            self.serial.send_motor_command(base_speed, base_speed, 1, 1)  # dir=0 для движения вперед
+            self.serial.send_motor_command(int(left_speed), int(right_speed), 0, 0)
+            self.logger.debug(f"Отслеживание: dist={distance_to_customer:.2f}м, "
+                            f"angle={angle_to_customer:.2f}рад, speed={speed:.0f}, "
+                            f"L={left_speed:.0f}, R={right_speed:.0f}")
         except Exception as e:
             self.logger.error(f"Ошибка отправки команды движения: {e}")
             self.navigation.stop()
+            self._reset_pid()
             self.transition_to(State.ERROR_RECOVERY)
-            self.transition_to(State.VERIFYING)
-        else:
-            # Продолжение навигации к клиенту
-            # Навигация выполняется асинхронно, здесь только проверяем прогресс
-            pass
+    
+    def _calculate_pid_speed(self, current_distance: float) -> float:
+        """
+        Вычисление скорости с помощью ПИД регулятора
+        
+        Args:
+            current_distance: Текущее расстояние до человека (м)
+            
+        Returns:
+            Скорость мотора (0-255)
+        """
+        # Целевое расстояние
+        target_distance = config.PID_PERSON_TRACKING_TARGET_DISTANCE
+        
+        # Ошибка (разница между текущим и целевым расстоянием)
+        error = current_distance - target_distance
+        
+        # Временной интервал
+        current_time = time.time()
+        dt = current_time - self._pid_last_time
+        self._pid_last_time = current_time
+        
+        # Защита от деления на ноль
+        if dt <= 0:
+            dt = 0.01
+        
+        # Интегральная составляющая
+        self._pid_error_integral += error * dt
+        
+        # Ограничение интегральной составляющей (anti-windup)
+        max_integral = 1.0
+        self._pid_error_integral = max(-max_integral, min(max_integral, self._pid_error_integral))
+        
+        # Дифференциальная составляющая
+        error_derivative = (error - self._pid_error_prev) / dt
+        self._pid_error_prev = error
+        
+        # ПИД формула
+        output = (config.PID_PERSON_TRACKING_KP * error +
+                 config.PID_PERSON_TRACKING_KI * self._pid_error_integral +
+                 config.PID_PERSON_TRACKING_KD * error_derivative)
+        
+        # Преобразование в скорость
+        # Если error > 0 (далеко), увеличиваем скорость
+        # Если error < 0 (близко), уменьшаем скорость
+        base_speed = config.PID_PERSON_TRACKING_MIN_SPEED
+        speed = base_speed + output
+        
+        return speed
+    
+    def _reset_pid(self) -> None:
+        """Сброс состояния ПИД регулятора"""
+        self._pid_error_prev = 0.0
+        self._pid_error_integral = 0.0
+        self._pid_last_time = time.time()
     
     def update_verifying_state(self) -> None:
         """
