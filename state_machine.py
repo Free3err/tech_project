@@ -326,7 +326,7 @@ class StateMachine:
             self.navigation.stop()
             
             # Запрос QR кода
-            self.audio.announce_request_qr()
+            self.audio.request_qr_code()
             
             # Переход к проверке заказа
             self.transition_to(State.VERIFYING)
@@ -348,7 +348,7 @@ class StateMachine:
             )
             
             # Запрос QR кода
-            self.audio.announce_request_qr()
+            self.audio.request_qr_code()
             
             # Переход к проверке заказа
             self.transition_to(State.VERIFYING)
