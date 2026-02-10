@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RelayBot Control Panel</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #00d9ff;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .panel {
+            background: #16213e;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        .panel h2 {
+            color: #00d9ff;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        #camera-feed {
+            width: 100%;
+            border-radius: 10px;
+            background: #000;
+        }
+        
+        #lidar-canvas {
+            width: 100%;
+            height: 400px;
+            background: #0f1419;
+            border-radius: 10px;
+            border: 2px solid #00d9ff;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .control-btn {
+            padding: 20px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .control-btn:active {
+            transform: translateY(0);
+        }
+        
+        .control-btn.stop {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            grid-column: 2;
+        }
+        
+        .servo-control {
+            margin-top: 20px;
+        }
+        
+        .servo-control input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #0f3460;
+            outline: none;
+            margin: 10px 0;
+        }
+        
+        .servo-control input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #00d9ff;
+            cursor: pointer;
+        }
+        
+        .servo-value {
+            text-align: center;
+            font-size: 1.5em;
+            color: #00d9ff;
+            margin-top: 10px;
+        }
+        
+        .status {
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        .status.connected {
+            background: #2d6a4f;
+        }
+        
+        .status.error {
+            background: #9d0208;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 RelayBot Control Panel</h1>
+        
+        <div class="grid">
+            <!-- Камера -->
+            <div class="panel">
+                <h2>📹 Камера</h2>
+                <img id="camera-feed" src="/video_feed" alt="Camera Feed">
+                <div id="camera-status" class="status">Загрузка...</div>
+            </div>
+            
+            <!-- LiDAR -->
+            <div class="panel">
+                <h2>🎯 LiDAR Карта</h2>
+                <canvas id="lidar-canvas"></canvas>
+                <div id="lidar-status" class="status">Ожидание данных...</div>
+            </div>
+        </div>
+        
+        <!-- Управление -->
+        <div class="panel">
+            <h2>🎮 Управление движением</h2>
+            <div class="controls">
+                <div></div>
+                <button class="control-btn" onclick="move('forward')">⬆️ Вперед</button>
+                <div></div>
+                
+                <button class="control-btn" onclick="move('left')">⬅️ Влево</button>
+                <button class="control-btn stop" onclick="move('stop')">⏹️ Стоп</button>
+                <button class="control-btn" onclick="move('right')">➡️ Вправо</button>
+                
+                <div></div>
+                <button class="control-btn" onclick="move('backward')">⬇️ Назад</button>
+                <div></div>
+            </div>
+            
+            <div class="servo-control">
+                <h3>🔧 Сервопривод (Ящик)</h3>
+                <input type="range" id="servo-slider" min="0" max="112" value="0" oninput="updateServo(this.value)">
+                <div class="servo-value"><span id="servo-value">0</span>°</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // WebSocket подключение
+        const socket = io();
+        
+        // Canvas для LiDAR
+        const canvas = document.getElementById('lidar-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Установка размера canvas
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Обработка подключения
+        socket.on('connect', () => {
+            document.getElementById('camera-status').textContent = 'Подключено';
+            document.getElementById('camera-status').className = 'status connected';
+        });
+        
+        // Обработка данных LiDAR
+        socket.on('lidar_data', (data) => {
+            drawLidar(data.points);
+            document.getElementById('lidar-status').textContent = `Точек: ${data.points.length}`;
+            document.getElementById('lidar-status').className = 'status connected';
+        });
+        
+        // Отрисовка LiDAR карты
+        function drawLidar(points) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const scale = Math.min(canvas.width, canvas.height) / 1500; // Масштаб
+            
+            // Очистка canvas
+            ctx.fillStyle = '#0f1419';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Сетка
+            ctx.strokeStyle = '#1a2332';
+            ctx.lineWidth = 1;
+            for (let i = 100; i <= 600; i += 100) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, i * scale, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            
+            // Оси
+            ctx.strokeStyle = '#2a3f5f';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, canvas.height);
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.stroke();
+            
+            // Робот (центр)
+            ctx.fillStyle = '#00d9ff';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Точки LiDAR
+            points.forEach(point => {
+                const x = centerX + point.x * scale;
+                const y = centerY - point.y * scale; // Инвертируем Y
+                
+                // Цвет в зависимости от интенсивности
+                const intensity = Math.min(255, point.intensity);
+                ctx.fillStyle = `rgb(${intensity}, ${255 - intensity}, 100)`;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+        
+        // Управление движением
+        async function move(direction) {
+            try {
+                const response = await fetch('/api/move', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({direction: direction, speed: 120})
+                });
+                const data = await response.json();
+                console.log('Move:', data);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        // Управление сервоприводом
+        async function updateServo(angle) {
+            document.getElementById('servo-value').textContent = angle;
+            
+            try {
+                const response = await fetch('/api/servo', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({angle: parseInt(angle)})
+                });
+                const data = await response.json();
+                console.log('Servo:', data);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        // Управление с клавиатуры
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    move('forward');
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    move('backward');
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    move('left');
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    move('right');
+                    break;
+                case ' ':
+                    move('stop');
+                    e.preventDefault();
+                    break;
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'W', 'a', 'A', 's', 'S', 'd', 'D'].includes(e.key)) {
+                move('stop');
+            }
+        });
+    </script>
+</body>
+</html>
