@@ -409,8 +409,8 @@ class StateMachine:
             # Остановка сканирования (безопасно из основного потока)
             self.order_verifier.stop_scanning()
             
-            # Переход к навигации на склад
-            self.transition_to(State.NAVIGATING_TO_WAREHOUSE)
+            # Переход к доставке (пропускаем склад)
+            self.transition_to(State.DELIVERING)
         else:
             self.logger.warning(f"Заказ не прошел проверку: order_id={order_id}")
             
@@ -431,195 +431,34 @@ class StateMachine:
         """
         Обновление состояния NAVIGATING_TO_WAREHOUSE
         
-        Робот навигирует к зоне загрузки склада.
+        Заглушка - переход сразу к загрузке.
         """
-        # Проверка, была ли уже запущена навигация
-        if not hasattr(self, '_warehouse_nav_started'):
-            self._warehouse_nav_started = True
-            
-            # Запуск навигации к складу в отдельном потоке
-            import threading
-            self._warehouse_nav_thread = threading.Thread(
-                target=self._navigate_to_warehouse_thread,
-                daemon=True
-            )
-            self._warehouse_nav_thread.start()
-            
-            self.logger.info("Запущена навигация к складу")
-        
-        # Проверка завершения навигации
-        if hasattr(self, '_warehouse_nav_result'):
-            success = self._warehouse_nav_result
-            
-            # Очистка флагов
-            delattr(self, '_warehouse_nav_started')
-            delattr(self, '_warehouse_nav_result')
-            
-            if success:
-                self.logger.info("Достигнута зона загрузки склада")
-                self.transition_to(State.LOADING)
-            else:
-                self.logger.error("Не удалось достичь склада")
-                raise RuntimeError("Навигация к складу не удалась")
-    
-    def _navigate_to_warehouse_thread(self) -> None:
-        """
-        Поток навигации к складу
-        """
-        try:
-            success = self.navigation.navigate_to(
-                config.WAREHOUSE_ZONE[0],
-                config.WAREHOUSE_ZONE[1]
-            )
-            self._warehouse_nav_result = success
-        except Exception as e:
-            self.logger.error(f"Ошибка навигации к складу: {e}")
-            self._warehouse_nav_result = False
+        self.logger.info("Пропуск навигации к складу")
+        self.transition_to(State.LOADING)
     
     def update_loading_state(self) -> None:
         """
         Обновление состояния LOADING
         
-        Робот ожидает загрузки посылки на складе.
+        Заглушка - переход сразу к доставке.
         """
-        # Проверка, было ли уже выполнено объявление
-        if not hasattr(self, '_loading_announced'):
-            self._loading_announced = True
-            
-            # Объявление номера заказа
-            if self.context.current_order_id is not None:
-                self.audio.announce_order_number(self.context.current_order_id)
-            
-            # Открытие коробки для загрузки
-            self.box_controller.open()
-            
-            self.logger.info("Ожидание загрузки посылки")
-            
-            # Запуск ожидания подтверждения загрузки
-            import threading
-            self._loading_thread = threading.Thread(
-                target=self._wait_for_loading_confirmation,
-                daemon=True
-            )
-            self._loading_thread.start()
-        
-        # Проверка завершения загрузки
-        if hasattr(self, '_loading_confirmed'):
-            confirmed = self._loading_confirmed
-            
-            # Очистка флагов
-            delattr(self, '_loading_announced')
-            delattr(self, '_loading_confirmed')
-            
-            if confirmed:
-                # Закрытие коробки
-                self.box_controller.close()
-                
-                self.logger.info("Загрузка завершена, возврат к клиенту")
-                self.transition_to(State.RETURNING_TO_CUSTOMER)
-            else:
-                self.logger.warning("Таймаут загрузки")
-                # Закрытие коробки
-                self.box_controller.close()
-                # Возврат в состояние ожидания
-                self.transition_to(State.WAITING)
-    
-    def _wait_for_loading_confirmation(self) -> None:
-        """
-        Ожидание подтверждения загрузки (в отдельном потоке)
-        
-        Ожидает нажатия клавиши Enter или таймаута
-        """
-        import select
-        import sys
-        
-        try:
-            self.logger.info("Нажмите Enter для подтверждения загрузки...")
-            
-            # Ожидание ввода с таймаутом
-            timeout = config.LOADING_CONFIRMATION_TIMEOUT
-            
-            # Для Windows используем простой input с таймаутом через threading
-            import threading
-            
-            result = [False]
-            
-            def wait_input():
-                try:
-                    input()  # Ожидание Enter
-                    result[0] = True
-                except:
-                    pass
-            
-            input_thread = threading.Thread(target=wait_input, daemon=True)
-            input_thread.start()
-            input_thread.join(timeout=timeout)
-            
-            self._loading_confirmed = result[0]
-            
-        except Exception as e:
-            self.logger.error(f"Ошибка ожидания подтверждения загрузки: {e}")
-            self._loading_confirmed = False
+        self.logger.info("Пропуск загрузки на складе")
+        self.transition_to(State.DELIVERING)
     
     def update_returning_to_customer_state(self) -> None:
         """
         Обновление состояния RETURNING_TO_CUSTOMER
         
-        Робот возвращается к клиенту с посылкой.
+        Заглушка - переход сразу к доставке.
         """
-        # Проверка наличия сохраненной позиции клиента
-        if self.context.customer_position is None:
-            self.logger.error("Нет сохраненной позиции клиента")
-            raise RuntimeError("Отсутствует позиция клиента для возврата")
-        
-        # Проверка, была ли уже запущена навигация
-        if not hasattr(self, '_return_nav_started'):
-            self._return_nav_started = True
-            
-            # Запуск навигации к клиенту в отдельном потоке
-            import threading
-            self._return_nav_thread = threading.Thread(
-                target=self._navigate_to_customer_thread,
-                daemon=True
-            )
-            self._return_nav_thread.start()
-            
-            self.logger.info(f"Запущена навигация к клиенту: ({self.context.customer_position.x:.2f}, {self.context.customer_position.y:.2f})")
-        
-        # Проверка завершения навигации
-        if hasattr(self, '_return_nav_result'):
-            success = self._return_nav_result
-            
-            # Очистка флагов
-            delattr(self, '_return_nav_started')
-            delattr(self, '_return_nav_result')
-            
-            if success:
-                self.logger.info("Достигнута позиция клиента")
-                self.transition_to(State.DELIVERING)
-            else:
-                self.logger.error("Не удалось вернуться к клиенту")
-                raise RuntimeError("Навигация к клиенту не удалась")
-    
-    def _navigate_to_customer_thread(self) -> None:
-        """
-        Поток навигации к клиенту
-        """
-        try:
-            success = self.navigation.navigate_to(
-                self.context.customer_position.x,
-                self.context.customer_position.y
-            )
-            self._return_nav_result = success
-        except Exception as e:
-            self.logger.error(f"Ошибка навигации к клиенту: {e}")
-            self._return_nav_result = False
+        self.logger.info("Пропуск возврата к клиенту")
+        self.transition_to(State.DELIVERING)
     
     def update_delivering_state(self) -> None:
         """
         Обновление состояния DELIVERING
         
-        Робот доставляет посылку клиенту.
+        Робот доставляет посылку клиенту (открывает коробку).
         """
         # Проверка, было ли уже начато приветствие
         if not hasattr(self, '_delivery_started'):
@@ -646,7 +485,7 @@ class StateMachine:
             delattr(self, '_delivery_start_time')
             
             self.logger.info("Доставка завершена")
-            self.transition_to(State.RESETTING)
+            self.transition_to(State.WAITING)
     
     def update_resetting_state(self) -> None:
         """
