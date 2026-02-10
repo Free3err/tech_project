@@ -384,10 +384,10 @@ class LiDARInterface:
     
     def detect_person(self) -> Optional[Tuple[float, float]]:
         """
-        Обнаружение человека в зоне доставки
+        Упрощенное обнаружение человека
         
-        Использует алгоритм кластеризации для группировки близких точек
-        и определения объектов, похожих на человека по размеру.
+        Ищет точки в диапазоне 0.3-2.0 метра и возвращает среднее расстояние.
+        Это временное упрощенное решение пока не исправим парсинг LiDAR.
         
         Returns:
             Позиция человека (x, y) относительно робота или None если не обнаружен
@@ -395,45 +395,26 @@ class LiDARInterface:
         # Получаем текущее сканирование
         scan = self.last_scan if self.last_scan else self.get_scan()
         
-        if not scan:
+        if not scan or len(scan) < 3:
             return None
         
-        # Преобразуем полярные координаты в декартовы
-        cartesian_points = []
-        for point in scan:
-            x = point.distance * math.cos(point.angle)
-            y = point.distance * math.sin(point.angle)
-            cartesian_points.append((x, y))
+        # Ищем точки в диапазоне обнаружения человека (0.3 - 2.0 метра)
+        person_points = [p for p in scan if 0.3 <= p.distance <= 2.0]
         
-        # Кластеризация точек
-        clusters = self._cluster_points(cartesian_points)
+        if len(person_points) < 3:  # Минимум 3 точки
+            return None
         
-        # Фильтруем кластеры по размеру (человек имеет определенный размер)
-        person_clusters = []
-        for cluster in clusters:
-            if len(cluster) >= config.PERSON_DETECTION_MIN_POINTS:
-                cluster_size = self._calculate_cluster_size(cluster)
-                
-                # Проверяем, соответствует ли размер кластера размеру человека
-                if config.PERSON_MIN_CLUSTER_SIZE <= cluster_size <= config.PERSON_MAX_CLUSTER_SIZE:
-                    person_clusters.append(cluster)
+        # Берем среднее расстояние
+        avg_distance = sum(p.distance for p in person_points) / len(person_points)
         
-        # Если найдены кластеры-кандидаты, возвращаем ближайший
-        if person_clusters:
-            # Вычисляем центр каждого кластера
-            cluster_centers = []
-            for cluster in person_clusters:
-                center_x = sum(p[0] for p in cluster) / len(cluster)
-                center_y = sum(p[1] for p in cluster) / len(cluster)
-                distance = math.sqrt(center_x**2 + center_y**2)
-                cluster_centers.append((center_x, center_y, distance))
-            
-            # Возвращаем ближайший кластер
-            closest = min(cluster_centers, key=lambda c: c[2])
-            self.logger.info(f"Обнаружен человек на позиции ({closest[0]:.2f}, {closest[1]:.2f}), расстояние {closest[2]:.2f}м")
-            return (closest[0], closest[1])
+        # Возвращаем позицию (прямо перед роботом)
+        # x - вперед, y - вбок (0 = прямо)
+        x = avg_distance
+        y = 0.0
         
-        return None
+        self.logger.info(f"Человек обнаружен: {len(person_points)} точек, расстояние {avg_distance:.2f}м")
+        
+        return (x, y)
     
     def _cluster_points(self, points: List[Tuple[float, float]]) -> List[List[Tuple[float, float]]]:
         """
