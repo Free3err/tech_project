@@ -6,12 +6,12 @@ echo "Запуск веб-интерфейса RelayBot"
 echo "=========================================="
 
 # Активация виртуального окружения
-if [ -d ".venv" ]; then
+if [ -d "venv" ]; then
     echo "Активация виртуального окружения..."
-    source .venv/bin/activate
+    source venv/bin/activate
 else
-    echo "⚠ Виртуальное окружение не найдено (.venv)"
-    echo "Создайте его командой: python3 -m venv .venv"
+    echo "⚠ Виртуальное окружение не найдено (venv)"
+    echo "Создайте его командой: python3 -m venv venv"
     exit 1
 fi
 
