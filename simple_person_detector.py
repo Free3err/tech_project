@@ -75,8 +75,8 @@ class SimplePersonDetector:
                         distance_mm = struct.unpack('<H', packet[offset:offset+2])[0]
                         distance_m = distance_mm / 1000.0
                         
-                        # Фильтруем валидные расстояния
-                        if 0.05 < distance_m < 10.0:
+                        # Фильтруем валидные расстояния (0.03 - 0.5 метра)
+                        if 0.03 < distance_m < 0.5:
                             distances.append(distance_m)
         
         except Exception as e:
@@ -96,8 +96,8 @@ class SimplePersonDetector:
         if not distances:
             return None
         
-        # Ищем точки в диапазоне обнаружения человека (0.3 - 2.0 метра)
-        person_distances = [d for d in distances if 0.2 <= d <= 0.5]
+        # Ищем точки в диапазоне обнаружения человека (0.03 - 0.5 метра)
+        person_distances = [d for d in distances if 0.03 <= d <= 0.5]
         
         if len(person_distances) < 3:  # Минимум 3 точки
             return None
