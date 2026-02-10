@@ -72,6 +72,10 @@ class LiDARInterface:
         
         avg_distance = sum(p.distance for p in scan) / len(scan)
         
+        # Проверка диапазона обнаружения человека
+        if avg_distance < config.LIDAR_MIN_RANGE or avg_distance > config.LIDAR_MAX_RANGE:
+            return None
+        
         x = avg_distance * math.cos(0)
         y = avg_distance * math.sin(0)
         

@@ -281,22 +281,17 @@ class StateMachine:
         person_position = self.lidar.detect_person()
         
         if person_position is not None:
-            # Преобразование относительных координат в глобальные
+            # Для прототипа: любой обнаруженный человек считается клиентом
             global_x = self.context.current_position.x + person_position[0]
             global_y = self.context.current_position.y + person_position[1]
             
-            # Проверка, что человек в зоне доставки
-            distance_from_home = ((global_x - config.HOME_POSITION[0])**2 + 
-                                 (global_y - config.HOME_POSITION[1])**2)**0.5
+            self.logger.info(f"Обнаружен человек в зоне доставки: ({global_x:.2f}, {global_y:.2f})")
             
-            if distance_from_home <= config.DELIVERY_ZONE_RADIUS:
-                self.logger.info(f"Обнаружен человек в зоне доставки: ({global_x:.2f}, {global_y:.2f})")
-                
-                # Сохранение позиции клиента как целевой
-                self.context.target_position = Position(global_x, global_y, 0.0)
-                
-                # Переход к подходу к клиенту
-                self.transition_to(State.APPROACHING)
+            # Сохранение позиции клиента как целевой
+            self.context.target_position = Position(global_x, global_y, 0.0)
+            
+            # Переход к подходу к клиенту
+            self.transition_to(State.APPROACHING)
     
     def update_approaching_state(self) -> None:
         """
