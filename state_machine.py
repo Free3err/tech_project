@@ -360,7 +360,7 @@ class StateMachine:
         angle_to_customer = person_position[1]  # Угол в радианах
         
         # Базовая скорость
-        base_speed = 120
+        base_speed = 140
         
         # Отправка команды движения
         try:
