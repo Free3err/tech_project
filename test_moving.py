@@ -7,7 +7,7 @@
 
 import time
 import sys
-from serialConnection import init_serial, ser
+import serialConnection
 
 
 def print_menu():
@@ -34,7 +34,7 @@ def send_motor_command(speed_left, speed_right, dir_left, dir_right):
     """Отправка команды моторам"""
     try:
         command = f"M{speed_left},{speed_right},{dir_left},{dir_right}\n"
-        ser.write(command.encode())
+        serialConnection.ser.write(command.encode())
         print(f"→ Моторы: {command.strip()}")
         time.sleep(0.1)
     except Exception as e:
@@ -45,7 +45,7 @@ def send_servo_command(angle):
     """Отправка команды серво"""
     try:
         command = f"S{angle}\n"
-        ser.write(command.encode())
+        serialConnection.ser.write(command.encode())
         print(f"→ Серво: {angle}°")
         time.sleep(0.1)
     except Exception as e:
@@ -62,7 +62,7 @@ def main():
     print("Инициализация последовательного соединения...")
     
     try:
-        init_serial(port='/dev/ttyACM0', baudrate=9600)
+        serialConnection.init_serial(port='/dev/ttyACM0', baudrate=9600)
         print("✓ Соединение установлено")
     except Exception as e:
         print(f"✗ Ошибка подключения: {e}")
@@ -128,8 +128,8 @@ def main():
         stop_motors()
         
         # Закрытие соединения
-        if ser and ser.is_open:
-            ser.close()
+        if serialConnection.ser and serialConnection.ser.is_open:
+            serialConnection.ser.close()
             print("✓ Соединение закрыто")
     
     return 0
