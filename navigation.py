@@ -438,11 +438,14 @@ class NavigationSystem:
         # Для каждой точки сканирования вычисляем ожидаемое расстояние до препятствия
         
         likelihood = 1.0
-        sample_size = min(len(scan), 36)  # Используем подвыборку для скорости
+        sample_size = min(len(scan), 12)  # Уменьшено до 12 для производительности
         step = len(scan) // sample_size if sample_size > 0 else 1
         
         for i in range(0, len(scan), step):
-            distance, angle = scan[i]
+            # scan[i] это объект ScanPoint с полями distance, angle, intensity
+            scan_point = scan[i]
+            distance = scan_point.distance
+            angle = scan_point.angle
             
             # Вычисление глобального угла луча
             global_angle = self._normalize_angle(particle.theta + angle)

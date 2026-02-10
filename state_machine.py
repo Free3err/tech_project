@@ -92,6 +92,10 @@ class StateMachine:
         # Флаг для остановки машины состояний
         self.is_running = False
         
+        # Счетчик для пропуска обновлений локализации (оптимизация)
+        self._localization_skip_counter = 0
+        self._localization_skip_rate = 2  # Обновлять локализацию каждую 2-ю итерацию
+        
         self.logger.info(f"Машина состояний инициализирована в состоянии {self.current_state.value}")
     
     def transition_to(self, new_state: State) -> None:
@@ -229,8 +233,11 @@ class StateMachine:
             if self._check_state_timeout():
                 raise TimeoutError(f"Таймаут состояния {self.current_state.value}")
             
-            # Обновление локализации (непрерывно)
-            self.navigation.update_localization()
+            # Обновление локализации (с пропуском для производительности)
+            self._localization_skip_counter += 1
+            if self._localization_skip_counter >= self._localization_skip_rate:
+                self._localization_skip_counter = 0
+                self.navigation.update_localization()
             
             # Обновление текущей позиции в контексте
             x, y, theta = self.navigation.get_current_position()

@@ -568,7 +568,7 @@ The implementation extends existing code (qrScanner.py, serialConnection.py, db 
     - Document configuration parameters in config.py
     - _Requirements: 14.2_
   
-  - [~] 34.2 Create developer documentation
+  - [ ] 34.2 Create developer documentation
     - Document module interfaces and dependencies
     - Document state machine behavior and transitions
     - Document navigation system architecture
@@ -576,7 +576,7 @@ The implementation extends existing code (qrScanner.py, serialConnection.py, db 
     - Add Russian comments to all functions as required
     - _Requirements: 14.2_
   
-  - [~] 34.3 Prepare deployment package
+  - [ ] 34.3 Prepare deployment package
     - Create installation script
     - Create systemd service file for auto-start
     - Create backup and restore scripts
