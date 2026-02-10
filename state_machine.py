@@ -364,7 +364,24 @@ class StateMachine:
         Обновление состояния VERIFYING
         
         Робот запрашивает QR код у клиента и проверяет заказ.
+        Повторяет сканирование пока человек в зоне видимости.
         """
+        # Проверка наличия человека в зоне видимости
+        person_position = self.lidar.detect_person()
+        
+        if person_position is None:
+            # Человек ушел - возврат в WAITING
+            self.logger.info("Человек вышел из зоны видимости во время верификации")
+            
+            # Остановка сканирования если оно запущено
+            if hasattr(self, '_verifying_started'):
+                self.order_verifier.stop_scanning()
+                delattr(self, '_verifying_started')
+                self._verification_callback_received = False
+            
+            self.transition_to(State.WAITING)
+            return
+        
         # Проверка, был ли уже запущен процесс сканирования
         if not hasattr(self, '_verifying_started'):
             self._verifying_started = True
@@ -409,8 +426,12 @@ class StateMachine:
             # Остановка сканирования (безопасно из основного потока)
             self.order_verifier.stop_scanning()
             
-            # Переход к навигации на склад
-            self.transition_to(State.NAVIGATING_TO_WAREHOUSE)
+            # Сброс флагов
+            delattr(self, '_verifying_started')
+            self._verification_callback_received = False
+            
+            # Переход к загрузке
+            self.transition_to(State.LOADING)
         else:
             self.logger.warning(f"Заказ не прошел проверку: order_id={order_id}")
             
@@ -420,75 +441,42 @@ class StateMachine:
             # Остановка сканирования (безопасно из основного потока)
             self.order_verifier.stop_scanning()
             
-            # Возврат в состояние ожидания
-            self.transition_to(State.WAITING)
-        
-        # Сброс флагов для следующего использования
-        delattr(self, '_verifying_started')
-        self._verification_callback_received = False
+            # Сброс флагов для повторного сканирования
+            delattr(self, '_verifying_started')
+            self._verification_callback_received = False
+            
+            # Остаемся в VERIFYING - будет повторное сканирование
+            # Если человек ушел, update_verifying_state() вернет в WAITING
+            self.logger.info("Ожидание повторного сканирования QR кода")
     
     def update_navigating_to_warehouse_state(self) -> None:
         """
         Обновление состояния NAVIGATING_TO_WAREHOUSE
         
-        Имитация поездки на склад:
-        - Шаг 0: Назад 2 секунды
-        - Шаг 1: Поворот направо 90° (1.5 секунды)
-        - Шаг 2: Вперед 3 секунды
+        Пустое состояние - ничего не делает.
         """
-        if not hasattr(self, '_warehouse_step'):
-            self._warehouse_step = 0
-            self._warehouse_step_start = time.time()
-            self.logger.info("Начало имитации поездки на склад")
-        
-        elapsed = time.time() - self._warehouse_step_start
-        
-        if self._warehouse_step == 0:
-            # Шаг 0: Назад 2 секунды
-            if elapsed < 2.0:
-                self.serial.send_motor_command(120, 120, 1, 1)  # Назад
-            else:
-                self.navigation.stop()
-                self._warehouse_step = 1
-                self._warehouse_step_start = time.time()
-                self.logger.info("Поворот направо 90°")
-        
-        elif self._warehouse_step == 1:
-            # Шаг 1: Поворот направо 90° (1.5 секунды)
-            if elapsed < 1.5:
-                self.serial.send_motor_command(100, 100, 0, 1)  # Поворот направо
-            else:
-                self.navigation.stop()
-                self._warehouse_step = 2
-                self._warehouse_step_start = time.time()
-                self.logger.info("Движение вперед 3 секунды")
-        
-        elif self._warehouse_step == 2:
-            # Шаг 2: Вперед 3 секунды
-            if elapsed < 3.0:
-                self.serial.send_motor_command(120, 120, 0, 0)  # Вперед
-            else:
-                self.navigation.stop()
-                delattr(self, '_warehouse_step')
-                delattr(self, '_warehouse_step_start')
-                self.logger.info("Достигнута зона склада")
-                self.transition_to(State.LOADING)
+        pass
     
     def update_loading_state(self) -> None:
         """
         Обновление состояния LOADING
         
         Погрузка:
-        - Открытие серво на 113°
-        - Ожидание таймаута из конфига
-        - Закрытие: серво 43°, затем через 500мс серво 58°
+        - Произносит номер заказа
+        - Открывает серво на 113°
+        - Ждет таймаут из конфига
+        - Закрывает: 43°, через 500мс 58°
         """
         if not hasattr(self, '_loading_started'):
             self._loading_started = True
             self._loading_step = 0
             self._loading_step_start = time.time()
             
-            # Открытие коробки на 113°
+            # Произносит номер заказа
+            if self.context.current_order_id is not None:
+                self.audio.announce_order_number(self.context.current_order_id)
+            
+            # Открытие серво на 113°
             self.serial.send_servo_command(113)
             self.logger.info("Открытие коробки для загрузки (113°)")
         
@@ -506,7 +494,6 @@ class StateMachine:
         elif self._loading_step == 1:
             # Ожидание 500мс перед вторым этапом закрытия
             if elapsed >= 0.5:
-                self._loading_step = 2
                 # Закрытие: второй этап - 58°
                 self.serial.send_servo_command(58)
                 self.logger.info("Закрытие коробки: этап 2 (58°)")
@@ -516,63 +503,27 @@ class StateMachine:
                 delattr(self, '_loading_step')
                 delattr(self, '_loading_step_start')
                 
-                self.logger.info("Загрузка завершена, возврат к клиенту")
-                self.transition_to(State.RETURNING_TO_CUSTOMER)
+                self.logger.info("Загрузка завершена, переход к доставке")
+                self.transition_to(State.DELIVERING)
     
     def update_returning_to_customer_state(self) -> None:
         """
         Обновление состояния RETURNING_TO_CUSTOMER
         
-        Возврат к клиенту (обратная последовательность):
-        - Шаг 0: Назад 3 секунды
-        - Шаг 1: Поворот налево 90° (1.5 секунды)
-        - Шаг 2: Вперед 2 секунды
+        Пустое состояние - ничего не делает.
         """
-        if not hasattr(self, '_return_step'):
-            self._return_step = 0
-            self._return_step_start = time.time()
-            self.logger.info("Начало возврата к клиенту")
-        
-        elapsed = time.time() - self._return_step_start
-        
-        if self._return_step == 0:
-            # Шаг 0: Назад 3 секунды
-            if elapsed < 3.0:
-                self.serial.send_motor_command(120, 120, 1, 1)  # Назад
-            else:
-                self.navigation.stop()
-                self._return_step = 1
-                self._return_step_start = time.time()
-                self.logger.info("Поворот налево 90°")
-        
-        elif self._return_step == 1:
-            # Шаг 1: Поворот налево 90° (1.5 секунды)
-            if elapsed < 1.5:
-                self.serial.send_motor_command(100, 100, 1, 0)  # Поворот налево
-            else:
-                self.navigation.stop()
-                self._return_step = 2
-                self._return_step_start = time.time()
-                self.logger.info("Движение вперед 2 секунды")
-        
-        elif self._return_step == 2:
-            # Шаг 2: Вперед 2 секунды
-            if elapsed < 2.0:
-                self.serial.send_motor_command(120, 120, 0, 0)  # Вперед
-            else:
-                self.navigation.stop()
-                delattr(self, '_return_step')
-                delattr(self, '_return_step_start')
-                self.logger.info("Возврат к клиенту завершен")
-                self.transition_to(State.DELIVERING)
+        pass
     
     def update_delivering_state(self) -> None:
         """
         Обновление состояния DELIVERING
         
-        Доставка посылки клиенту:
-        - Открытие серво: 113°, затем через 500мс 58°
-        - Ожидание 10 секунд пока клиент не уйдет
+        Выдача посылки клиенту:
+        - Воспроизведение аудио приветствия
+        - Открытие серво на 113°
+        - Ожидание таймаута из конфига (DELIVERY_TIMEOUT)
+        - Закрытие: 43°, через 500мс 58°
+        - Ожидание 10 секунд
         - Переход в WAITING
         """
         if not hasattr(self, '_delivery_started'):
@@ -583,23 +534,32 @@ class StateMachine:
             # Приветствие клиента
             self.audio.greet_delivery()
             
-            # Открытие коробки: этап 1 - 113°
+            # Открытие серво на 113°
             self.serial.send_servo_command(113)
-            self.logger.info("Открытие коробки для выдачи: этап 1 (113°)")
+            self.logger.info("Открытие коробки для выдачи (113°)")
         
         elapsed = time.time() - self._delivery_step_start
         
         if self._delivery_step == 0:
-            # Ожидание 500мс перед вторым этапом открытия
-            if elapsed >= 0.5:
+            # Ожидание таймаута выдачи
+            if elapsed >= config.DELIVERY_TIMEOUT:
                 self._delivery_step = 1
                 self._delivery_step_start = time.time()
-                # Открытие: этап 2 - 58°
-                self.serial.send_servo_command(58)
-                self.logger.info("Открытие коробки для выдачи: этап 2 (58°)")
+                # Закрытие: первый этап - 43°
+                self.serial.send_servo_command(43)
+                self.logger.info("Закрытие коробки: этап 1 (43°)")
         
         elif self._delivery_step == 1:
-            # Ожидание 10 секунд пока клиент не уйдет
+            # Ожидание 500мс перед вторым этапом закрытия
+            if elapsed >= 0.5:
+                self._delivery_step = 2
+                self._delivery_step_start = time.time()
+                # Закрытие: второй этап - 58°
+                self.serial.send_servo_command(58)
+                self.logger.info("Закрытие коробки: этап 2 (58°)")
+        
+        elif self._delivery_step == 2:
+            # Ожидание 10 секунд перед возвратом в WAITING
             if elapsed >= 10.0:
                 # Очистка флагов
                 delattr(self, '_delivery_started')

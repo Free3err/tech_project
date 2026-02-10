@@ -182,7 +182,7 @@ def send_servo_command(angle: int) -> None:
     Отправить команду сервоприводу с повторными попытками
     
     Args:
-        angle: Угол сервопривода (0-90 градусов)
+        angle: Угол сервопривода (0-180 градусов)
     
     Raises:
         ValueError: Если угол вне допустимого диапазона
@@ -195,8 +195,8 @@ def send_servo_command(angle: int) -> None:
         raise RuntimeError("Serial connection not initialized. Call init_serial() first.")
     
     # Проверка диапазона угла
-    if not (0 <= angle <= 90):
-        raise ValueError(f"angle must be 0-90, got {angle}")
+    if not (0 <= angle <= 180):
+        raise ValueError(f"angle must be 0-180, got {angle}")
     
     # Формирование команды
     command = f"SERVO:{angle}\n"

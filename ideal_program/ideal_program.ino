@@ -313,8 +313,8 @@ void parseMotorCommand(String cmd) {
 // === Управление сервоприводом ===
 // Функция установки угла сервопривода
 void setServoAngle(int angle) {
-  // Ограничение угла в диапазоне 0-90 градусов
-  angle = constrain(angle, 0, 90);
+  // Ограничение угла в диапазоне 0-180 градусов
+  angle = constrain(angle, 0, 180);
   
   boxServo.write(angle);
   currentServoAngle = angle;
@@ -328,8 +328,8 @@ void parseServoCommand(String cmd) {
   
   int angle = cmd.toInt();
   
-  if (angle < 0 || angle > 90) {
-    Serial.println("ERROR: Invalid SERVO angle (must be 0-90)");
+  if (angle < 0 || angle > 180) {
+    Serial.println("ERROR: Invalid SERVO angle (must be 0-180)");
     return;
   }
   
