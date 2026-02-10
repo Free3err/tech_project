@@ -409,8 +409,8 @@ class StateMachine:
             # Остановка сканирования (безопасно из основного потока)
             self.order_verifier.stop_scanning()
             
-            # Переход к доставке (пропускаем склад)
-            self.transition_to(State.DELIVERING)
+            # Переход к навигации на склад
+            self.transition_to(State.NAVIGATING_TO_WAREHOUSE)
         else:
             self.logger.warning(f"Заказ не прошел проверку: order_id={order_id}")
             
@@ -431,61 +431,183 @@ class StateMachine:
         """
         Обновление состояния NAVIGATING_TO_WAREHOUSE
         
-        Заглушка - переход сразу к загрузке.
+        Имитация поездки на склад:
+        - Шаг 0: Назад 2 секунды
+        - Шаг 1: Поворот направо 90° (1.5 секунды)
+        - Шаг 2: Вперед 3 секунды
         """
-        self.logger.info("Пропуск навигации к складу")
-        self.transition_to(State.LOADING)
+        if not hasattr(self, '_warehouse_step'):
+            self._warehouse_step = 0
+            self._warehouse_step_start = time.time()
+            self.logger.info("Начало имитации поездки на склад")
+        
+        elapsed = time.time() - self._warehouse_step_start
+        
+        if self._warehouse_step == 0:
+            # Шаг 0: Назад 2 секунды
+            if elapsed < 2.0:
+                self.serial.send_motor_command(120, 120, 1, 1)  # Назад
+            else:
+                self.navigation.stop()
+                self._warehouse_step = 1
+                self._warehouse_step_start = time.time()
+                self.logger.info("Поворот направо 90°")
+        
+        elif self._warehouse_step == 1:
+            # Шаг 1: Поворот направо 90° (1.5 секунды)
+            if elapsed < 1.5:
+                self.serial.send_motor_command(100, 100, 0, 1)  # Поворот направо
+            else:
+                self.navigation.stop()
+                self._warehouse_step = 2
+                self._warehouse_step_start = time.time()
+                self.logger.info("Движение вперед 3 секунды")
+        
+        elif self._warehouse_step == 2:
+            # Шаг 2: Вперед 3 секунды
+            if elapsed < 3.0:
+                self.serial.send_motor_command(120, 120, 0, 0)  # Вперед
+            else:
+                self.navigation.stop()
+                delattr(self, '_warehouse_step')
+                delattr(self, '_warehouse_step_start')
+                self.logger.info("Достигнута зона склада")
+                self.transition_to(State.LOADING)
     
     def update_loading_state(self) -> None:
         """
         Обновление состояния LOADING
         
-        Заглушка - переход сразу к доставке.
+        Погрузка:
+        - Открытие серво на 113°
+        - Ожидание таймаута из конфига
+        - Закрытие: серво 43°, затем через 500мс серво 58°
         """
-        self.logger.info("Пропуск загрузки на складе")
-        self.transition_to(State.DELIVERING)
+        if not hasattr(self, '_loading_started'):
+            self._loading_started = True
+            self._loading_step = 0
+            self._loading_step_start = time.time()
+            
+            # Открытие коробки на 113°
+            self.serial.send_servo_command(113)
+            self.logger.info("Открытие коробки для загрузки (113°)")
+        
+        elapsed = time.time() - self._loading_step_start
+        
+        if self._loading_step == 0:
+            # Ожидание таймаута загрузки
+            if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
+                self._loading_step = 1
+                self._loading_step_start = time.time()
+                # Закрытие: первый этап - 43°
+                self.serial.send_servo_command(43)
+                self.logger.info("Закрытие коробки: этап 1 (43°)")
+        
+        elif self._loading_step == 1:
+            # Ожидание 500мс перед вторым этапом закрытия
+            if elapsed >= 0.5:
+                self._loading_step = 2
+                # Закрытие: второй этап - 58°
+                self.serial.send_servo_command(58)
+                self.logger.info("Закрытие коробки: этап 2 (58°)")
+                
+                # Очистка флагов
+                delattr(self, '_loading_started')
+                delattr(self, '_loading_step')
+                delattr(self, '_loading_step_start')
+                
+                self.logger.info("Загрузка завершена, возврат к клиенту")
+                self.transition_to(State.RETURNING_TO_CUSTOMER)
     
     def update_returning_to_customer_state(self) -> None:
         """
         Обновление состояния RETURNING_TO_CUSTOMER
         
-        Заглушка - переход сразу к доставке.
+        Возврат к клиенту (обратная последовательность):
+        - Шаг 0: Назад 3 секунды
+        - Шаг 1: Поворот налево 90° (1.5 секунды)
+        - Шаг 2: Вперед 2 секунды
         """
-        self.logger.info("Пропуск возврата к клиенту")
-        self.transition_to(State.DELIVERING)
+        if not hasattr(self, '_return_step'):
+            self._return_step = 0
+            self._return_step_start = time.time()
+            self.logger.info("Начало возврата к клиенту")
+        
+        elapsed = time.time() - self._return_step_start
+        
+        if self._return_step == 0:
+            # Шаг 0: Назад 3 секунды
+            if elapsed < 3.0:
+                self.serial.send_motor_command(120, 120, 1, 1)  # Назад
+            else:
+                self.navigation.stop()
+                self._return_step = 1
+                self._return_step_start = time.time()
+                self.logger.info("Поворот налево 90°")
+        
+        elif self._return_step == 1:
+            # Шаг 1: Поворот налево 90° (1.5 секунды)
+            if elapsed < 1.5:
+                self.serial.send_motor_command(100, 100, 1, 0)  # Поворот налево
+            else:
+                self.navigation.stop()
+                self._return_step = 2
+                self._return_step_start = time.time()
+                self.logger.info("Движение вперед 2 секунды")
+        
+        elif self._return_step == 2:
+            # Шаг 2: Вперед 2 секунды
+            if elapsed < 2.0:
+                self.serial.send_motor_command(120, 120, 0, 0)  # Вперед
+            else:
+                self.navigation.stop()
+                delattr(self, '_return_step')
+                delattr(self, '_return_step_start')
+                self.logger.info("Возврат к клиенту завершен")
+                self.transition_to(State.DELIVERING)
     
     def update_delivering_state(self) -> None:
         """
         Обновление состояния DELIVERING
         
-        Робот доставляет посылку клиенту (открывает коробку).
+        Доставка посылки клиенту:
+        - Открытие серво: 113°, затем через 500мс 58°
+        - Ожидание 10 секунд пока клиент не уйдет
+        - Переход в WAITING
         """
-        # Проверка, было ли уже начато приветствие
         if not hasattr(self, '_delivery_started'):
             self._delivery_started = True
-            self._delivery_start_time = time.time()
+            self._delivery_step = 0
+            self._delivery_step_start = time.time()
             
             # Приветствие клиента
             self.audio.greet_delivery()
             
-            # Открытие коробки
-            self.box_controller.open()
-            
-            self.logger.info(f"Начата доставка, ожидание {config.DELIVERY_TIMEOUT}с")
+            # Открытие коробки: этап 1 - 113°
+            self.serial.send_servo_command(113)
+            self.logger.info("Открытие коробки для выдачи: этап 1 (113°)")
         
-        # Проверка истечения времени доставки
-        elapsed_time = time.time() - self._delivery_start_time
+        elapsed = time.time() - self._delivery_step_start
         
-        if elapsed_time >= config.DELIVERY_TIMEOUT:
-            # Закрытие коробки
-            self.box_controller.close()
-            
-            # Очистка флагов
-            delattr(self, '_delivery_started')
-            delattr(self, '_delivery_start_time')
-            
-            self.logger.info("Доставка завершена")
-            self.transition_to(State.WAITING)
+        if self._delivery_step == 0:
+            # Ожидание 500мс перед вторым этапом открытия
+            if elapsed >= 0.5:
+                self._delivery_step = 1
+                self._delivery_step_start = time.time()
+                # Открытие: этап 2 - 58°
+                self.serial.send_servo_command(58)
+                self.logger.info("Открытие коробки для выдачи: этап 2 (58°)")
+        
+        elif self._delivery_step == 1:
+            # Ожидание 10 секунд пока клиент не уйдет
+            if elapsed >= 10.0:
+                # Очистка флагов
+                delattr(self, '_delivery_started')
+                delattr(self, '_delivery_step')
+                delattr(self, '_delivery_step_start')
+                
+                self.logger.info("Доставка завершена, возврат в режим ожидания")
+                self.transition_to(State.WAITING)
     
     def update_resetting_state(self) -> None:
         """
