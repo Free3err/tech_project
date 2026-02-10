@@ -139,18 +139,15 @@ def initialize_subsystems():
     7. Контроллер коробки
     8. Система проверки заказов
     9. Машина состояний
-    10. Веб-интерфейс (опционально)
     
     Returns:
-        tuple: (StateMachine, web_thread) - Инициализированная машина состояний и поток веб-интерфейса
+        StateMachine: Инициализированная машина состояний
         
     Raises:
         RuntimeError: Если не удалось инициализировать критичные подсистемы
     """
     logger = logging.getLogger(__name__)
     logger.info("Начало инициализации подсистем...")
-    
-    web_thread = None
     
     try:
         # 1. Инициализация последовательной связи с Arduino
@@ -261,30 +258,7 @@ def initialize_subsystems():
         logger.info("Все подсистемы успешно инициализированы!")
         logger.info("=" * 80)
         
-        # 10. Запуск веб-интерфейса (опционально)
-        if config.WEB_INTERFACE_ENABLED:
-            logger.info("Запуск веб-интерфейса...")
-            try:
-                import threading
-                from web_interface import run_web_interface
-                
-                # Запуск веб-интерфейса в отдельном потоке
-                web_thread = threading.Thread(
-                    target=run_web_interface,
-                    args=(config.WEB_INTERFACE_HOST, config.WEB_INTERFACE_PORT),
-                    daemon=True,
-                    name="WebInterface"
-                )
-                web_thread.start()
-                
-                logger.info(f"✓ Веб-интерфейс запущен: http://{config.WEB_INTERFACE_HOST}:{config.WEB_INTERFACE_PORT}")
-            except Exception as e:
-                logger.warning(f"⚠ Не удалось запустить веб-интерфейс: {e}")
-                logger.warning("Система будет работать без веб-интерфейса")
-        else:
-            logger.info("Веб-интерфейс отключен в конфигурации")
-        
-        return sm, web_thread
+        return sm
         
     except Exception as e:
         logger.critical(f"Критическая ошибка инициализации: {e}")
@@ -459,7 +433,7 @@ def main():
     
     try:
         # Инициализация всех подсистем
-        state_machine, web_thread = initialize_subsystems()
+        state_machine = initialize_subsystems()
         
         # Запуск главного цикла управления
         main_loop(state_machine)

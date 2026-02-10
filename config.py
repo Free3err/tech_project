@@ -8,18 +8,13 @@ DELIVERY_ZONE_RADIUS = 0.5
 
 # Параметры навигации
 POSITION_TOLERANCE = 0.05
-CUSTOMER_APPROACH_DISTANCE = 0.1  # Остановка на расстоянии 10см от человека
+CUSTOMER_APPROACH_DISTANCE = 0.4  # Остановка на расстоянии 10см от человека
 MAX_SPEED = 140
 MIN_SPEED = 40
 LOCALIZATION_UPDATE_RATE = 5
 NAVIGATION_UPDATE_RATE = 10
 MAX_STUCK_TIME = 30.0
 STUCK_THRESHOLD = 0.05
-
-# Веб-интерфейс
-WEB_INTERFACE_ENABLED = True
-WEB_INTERFACE_HOST = '0.0.0.0'
-WEB_INTERFACE_PORT = 5000
 
 # LiDAR
 LIDAR_PORT = '/dev/ttyUSB0'
@@ -85,15 +80,7 @@ OBSTACLE_CLEARANCE = 0.10
 PLANNING_STEP_SIZE = 0.05
 MAX_PLANNING_ITERATIONS = 5000
 
-# PID контроллер для отслеживания человека
-PID_PERSON_TRACKING_KP = 80.0  # Пропорциональный коэффициент
-PID_PERSON_TRACKING_KI = 0.0   # Интегральный коэффициент
-PID_PERSON_TRACKING_KD = 20.0  # Дифференциальный коэффициент
-PID_PERSON_TRACKING_MAX_SPEED = 140
-PID_PERSON_TRACKING_MIN_SPEED = 80
-PID_PERSON_TRACKING_TARGET_DISTANCE = 0.15  # Целевое расстояние до человека (15см)
-
-# PID контроллер навигации
+# PID контроллер
 PID_LINEAR_KP = 1.0
 PID_LINEAR_KI = 0.0
 PID_LINEAR_KD = 0.1
