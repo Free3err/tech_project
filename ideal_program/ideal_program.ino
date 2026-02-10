@@ -313,9 +313,7 @@ void parseMotorCommand(String cmd) {
 // === Управление сервоприводом ===
 // Функция установки угла сервопривода
 void setServoAngle(int angle) {
-  // Ограничение угла в диапазоне 0-90 градусов
-  angle = constrain(angle, 0, 180);
-  
+  // Ограничение угла в диапазоне 0-180 градусов
   boxServo.write(angle);
   currentServoAngle = angle;
 }
