@@ -29,8 +29,8 @@ class BoxController:
         """
         self.serial_comm = serial_comm
         self._is_open = False
-        self._current_angle = config.BOX_CLOSE_ANGLE2
-        self._target_angle = config.BOX_CLOSE_ANGLE2
+        self._current_angle = config.BOX_CLOSE_ANGLE_2
+        self._target_angle = config.BOX_CLOSE_ANGLE_2
         
         logger.info("BoxController initialized")
         
@@ -67,13 +67,13 @@ class BoxController:
         """
         Закрыть коробку (0 градусов)
         
-        Отправляет команду сервоприводу для закрытия коробки до угла BOX_CLOSE_ANGLE.
+        Отправляет команду сервоприводу для закрытия коробки до угла BOX_CLOSE_ANGLE_2.
         Движение выполняется плавно для предотвращения повреждения посылки.
         
         Raises:
             RuntimeError: Если не удалось отправить команду сервоприводу
         """
-        if not self._is_open and self._current_angle == config.BOX_CLOSE_ANGLE:
+        if not self._is_open and self._current_angle == config.BOX_CLOSE_ANGLE_2:
             logger.debug("Box is already closed")
             return
         
@@ -81,7 +81,7 @@ class BoxController:
         
         try:
             # Плавное закрытие коробки
-            self._move_to_angle(config.BOX_CLOSE_ANGLE)
+            self._move_to_angle(config.BOX_CLOSE_ANGLE_2)
             self._is_open = False
             logger.info("Box closed successfully")
             
@@ -188,8 +188,8 @@ class BoxController:
         logger.warning("Emergency box close initiated")
         
         try:
-            self.serial_comm.send_servo_command(config.BOX_CLOSE_ANGLE)
-            self._current_angle = config.BOX_CLOSE_ANGLE
+            self.serial_comm.send_servo_command(config.BOX_CLOSE_ANGLE_2)
+            self._current_angle = config.BOX_CLOSE_ANGLE_2
             self._is_open = False
             logger.info("Emergency box close completed")
             
