@@ -277,6 +277,10 @@ class StateMachine:
         Робот находится в домашней позиции и ожидает обнаружения клиента.
         Мониторит LiDAR для обнаружения человека в зоне доставки.
         """
+        # Проверка доступности LiDAR
+        if self.lidar is None:
+            return
+        
         # Debounce: проверяем не слишком ли часто обнаруживаем
         current_time = time.time()
         if not hasattr(self, '_last_detection_time'):
