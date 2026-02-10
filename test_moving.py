@@ -30,33 +30,6 @@ def print_menu():
     print("="*50)
 
 
-def send_motor_command(speed_left, speed_right, dir_left, dir_right):
-    """Отправка команды моторам"""
-    try:
-        command = f"M{speed_left},{speed_right},{dir_left},{dir_right}\n"
-        serialConnection.ser.write(command.encode())
-        print(f"→ Моторы: {command.strip()}")
-        time.sleep(0.1)
-    except Exception as e:
-        print(f"✗ Ошибка отправки команды моторам: {e}")
-
-
-def send_servo_command(angle):
-    """Отправка команды серво"""
-    try:
-        command = f"S{angle}\n"
-        serialConnection.ser.write(command.encode())
-        print(f"→ Серво: {angle}°")
-        time.sleep(0.1)
-    except Exception as e:
-        print(f"✗ Ошибка отправки команды серво: {e}")
-
-
-def stop_motors():
-    """Остановка моторов"""
-    send_motor_command(0, 0, 0, 0)
-
-
 def main():
     """Главная функция"""
     print("Инициализация последовательного соединения...")
@@ -85,35 +58,43 @@ def main():
             
             elif cmd == 'w':
                 # Вперед
-                send_motor_command(140, 140, 1, 1)
+                print("→ Вперед")
+                serialConnection.send_motor_command(140, 140, 1, 1)
                 
             elif cmd == 's':
                 # Назад
-                send_motor_command(140, 140, 0, 0)
+                print("→ Назад")
+                serialConnection.send_motor_command(140, 140, 0, 0)
                 
             elif cmd == 'a':
                 # Поворот влево
-                send_motor_command(100, 100, 0, 1)
+                print("→ Поворот влево")
+                serialConnection.send_motor_command(100, 100, 0, 1)
                 
             elif cmd == 'd':
                 # Поворот вправо
-                send_motor_command(100, 100, 1, 0)
+                print("→ Поворот вправо")
+                serialConnection.send_motor_command(100, 100, 1, 0)
                 
             elif cmd == 'x':
                 # Стоп
-                stop_motors()
+                print("→ Стоп")
+                serialConnection.send_motor_command(0, 0, 0, 0)
                 
             elif cmd == '1':
                 # Серво 112°
-                send_servo_command(112)
+                print("→ Серво: 112°")
+                serialConnection.send_servo_command(112)
                 
             elif cmd == '2':
                 # Серво 35°
-                send_servo_command(35)
+                print("→ Серво: 35°")
+                serialConnection.send_servo_command(35)
                 
             elif cmd == '3':
                 # Серво 58°
-                send_servo_command(58)
+                print("→ Серво: 58°")
+                serialConnection.send_servo_command(58)
                 
             else:
                 print("Неизвестная команда")
@@ -125,7 +106,10 @@ def main():
     finally:
         # Остановка моторов перед выходом
         print("\nОстановка моторов...")
-        stop_motors()
+        try:
+            serialConnection.send_motor_command(0, 0, 0, 0)
+        except:
+            pass
         
         # Закрытие соединения
         if serialConnection.ser and serialConnection.ser.is_open:
