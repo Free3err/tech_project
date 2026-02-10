@@ -348,7 +348,7 @@ class StateMachine:
         
         # Движение к человеку: медленная скорость вперед
         # Скорость пропорциональна расстоянию (чем ближе, тем медленнее)
-        speed = int(min(100, max(40, distance_to_customer * 100)))
+        speed = 120
         
         self.logger.debug(f"Подъезд к клиенту: расстояние={distance_to_customer:.2f}м, скорость={speed}")
         
