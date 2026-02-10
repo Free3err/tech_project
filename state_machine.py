@@ -277,10 +277,21 @@ class StateMachine:
         Робот находится в домашней позиции и ожидает обнаружения клиента.
         Мониторит LiDAR для обнаружения человека в зоне доставки.
         """
+        # Debounce: проверяем не слишком ли часто обнаруживаем
+        current_time = time.time()
+        if not hasattr(self, '_last_detection_time'):
+            self._last_detection_time = 0
+        
         # Обнаружение человека в зоне доставки
         person_position = self.lidar.detect_person()
         
         if person_position is not None:
+            # Debounce: игнорируем обнаружения чаще чем раз в 2 секунды
+            if current_time - self._last_detection_time < 2.0:
+                return
+            
+            self._last_detection_time = current_time
+            
             # Для прототипа: любой обнаруженный человек считается клиентом
             global_x = self.context.current_position.x + person_position[0]
             global_y = self.context.current_position.y + person_position[1]
@@ -316,16 +327,10 @@ class StateMachine:
             self.transition_to(State.WAITING)
             return
         
-        # Обновление целевой позиции на основе текущего положения клиента
-        global_x = self.context.current_position.x + person_position[0]
-        global_y = self.context.current_position.y + person_position[1]
-        self.context.target_position = Position(global_x, global_y, 0.0)
+        # Расстояние до человека (person_position[0] это расстояние)
+        distance_to_customer = person_position[0]
         
-        # Вычисление расстояния до клиента
-        distance_to_customer = ((self.context.current_position.x - global_x)**2 + 
-                               (self.context.current_position.y - global_y)**2)**0.5
-        
-        # Проверка достижения клиента
+        # Проверка достижения клиента (остановка на безопасном расстоянии)
         if distance_to_customer < config.CUSTOMER_APPROACH_DISTANCE:
             self.logger.info(f"Достигнут клиент, расстояние: {distance_to_customer:.2f}м")
             self.navigation.stop()
@@ -338,6 +343,22 @@ class StateMachine:
             )
             
             # Переход к проверке заказа
+            self.transition_to(State.VERIFYING)
+            return
+        
+        # Движение к человеку: медленная скорость вперед
+        # Скорость пропорциональна расстоянию (чем ближе, тем медленнее)
+        speed = int(min(100, max(40, distance_to_customer * 100)))
+        
+        self.logger.debug(f"Подъезд к клиенту: расстояние={distance_to_customer:.2f}м, скорость={speed}")
+        
+        # Отправка команды движения вперед
+        try:
+            self.serial.send_motor_command(speed, speed, 0, 0)  # dir=0 для движения вперед
+        except Exception as e:
+            self.logger.error(f"Ошибка отправки команды движения: {e}")
+            self.navigation.stop()
+            self.transition_to(State.ERROR_RECOVERY)
             self.transition_to(State.VERIFYING)
         else:
             # Продолжение навигации к клиенту
