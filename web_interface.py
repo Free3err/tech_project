@@ -78,6 +78,9 @@ def generate_camera_frames():
             time.sleep(0.1)
             continue
         
+        # Поворот кадра на 180 градусов
+        frame = cv2.rotate(frame, cv2.ROTATE_180)
+        
         # Кодирование кадра в JPEG
         ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
         if not ret:

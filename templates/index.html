@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RelayBot Control Panel</title>
+    <title>RelayBot</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * {
@@ -13,198 +13,220 @@
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #1a1a2e;
-            color: #eee;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            padding: 15px;
+            overflow-x: hidden;
         }
         
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
         }
         
         h1 {
             text-align: center;
-            color: #00d9ff;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-            text-shadow: 0 0 10px rgba(0, 217, 255, 0.5);
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            font-weight: 300;
+            letter-spacing: 2px;
         }
         
-        .grid {
+        .main-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
+            grid-template-columns: 400px 1fr 350px;
+            gap: 15px;
+            margin-bottom: 15px;
         }
         
         .panel {
-            background: #16213e;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            background: #111;
+            border: 1px solid #222;
+            padding: 15px;
         }
         
         .panel h2 {
-            color: #00d9ff;
-            margin-bottom: 15px;
-            font-size: 1.5em;
+            color: #888;
+            margin-bottom: 12px;
+            font-size: 0.85em;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
         #camera-feed {
             width: 100%;
-            border-radius: 10px;
+            display: block;
             background: #000;
         }
         
         #lidar-canvas {
             width: 100%;
-            height: 400px;
-            background: #0f1419;
-            border-radius: 10px;
-            border: 2px solid #00d9ff;
+            height: 600px;
+            background: #000;
+            display: block;
         }
         
         .controls {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 20px;
+            gap: 8px;
         }
         
         .control-btn {
-            padding: 20px;
-            font-size: 1.2em;
-            border: none;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            padding: 18px;
+            font-size: 1.1em;
+            border: 1px solid #333;
+            background: #1a1a1a;
+            color: #e0e0e0;
             cursor: pointer;
-            transition: all 0.3s;
-            font-weight: bold;
+            transition: all 0.15s;
+            font-weight: 300;
         }
         
         .control-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+            background: #252525;
+            border-color: #444;
         }
         
         .control-btn:active {
-            transform: translateY(0);
+            background: #0a0a0a;
         }
         
         .control-btn.stop {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: #2a0a0a;
+            border-color: #400;
             grid-column: 2;
+        }
+        
+        .control-btn.stop:hover {
+            background: #3a0a0a;
+            border-color: #600;
         }
         
         .servo-control {
             margin-top: 20px;
         }
         
+        .servo-control h3 {
+            color: #888;
+            font-size: 0.85em;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+        
         .servo-control input[type="range"] {
             width: 100%;
-            height: 8px;
-            border-radius: 5px;
-            background: #0f3460;
+            height: 2px;
+            background: #222;
             outline: none;
-            margin: 10px 0;
+            margin: 15px 0;
+            -webkit-appearance: none;
         }
         
         .servo-control input[type="range"]::-webkit-slider-thumb {
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #00d9ff;
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #fff;
             cursor: pointer;
+        }
+        
+        .servo-control input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #fff;
+            cursor: pointer;
+            border: none;
         }
         
         .servo-value {
             text-align: center;
-            font-size: 1.5em;
-            color: #00d9ff;
-            margin-top: 10px;
+            font-size: 1.8em;
+            color: #fff;
+            font-weight: 200;
         }
         
         .status {
-            background: #0f3460;
-            padding: 10px;
-            border-radius: 5px;
+            background: #0a0a0a;
+            padding: 8px;
             margin-top: 10px;
             text-align: center;
+            font-size: 0.75em;
+            color: #666;
+            border: 1px solid #1a1a1a;
         }
         
         .status.connected {
-            background: #2d6a4f;
+            color: #4a4;
+            border-color: #1a2a1a;
         }
         
-        .status.error {
-            background: #9d0208;
-        }
-        
-        @media (max-width: 768px) {
-            .grid {
+        @media (max-width: 1200px) {
+            .main-grid {
                 grid-template-columns: 1fr;
+            }
+            
+            #lidar-canvas {
+                height: 500px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🤖 RelayBot Control Panel</h1>
+        <h1>RELAYBOT</h1>
         
-        <div class="grid">
+        <div class="main-grid">
             <!-- Камера -->
             <div class="panel">
-                <h2>📹 Камера</h2>
-                <img id="camera-feed" src="/video_feed" alt="Camera Feed">
-                <div id="camera-status" class="status">Загрузка...</div>
+                <h2>Camera</h2>
+                <img id="camera-feed" src="/video_feed" alt="Camera">
+                <div id="camera-status" class="status">Loading...</div>
             </div>
             
             <!-- LiDAR -->
             <div class="panel">
-                <h2>🎯 LiDAR Карта</h2>
+                <h2>LiDAR</h2>
                 <canvas id="lidar-canvas"></canvas>
-                <div id="lidar-status" class="status">Ожидание данных...</div>
-            </div>
-        </div>
-        
-        <!-- Управление -->
-        <div class="panel">
-            <h2>🎮 Управление движением</h2>
-            <div class="controls">
-                <div></div>
-                <button class="control-btn" onclick="move('forward')">⬆️ Вперед</button>
-                <div></div>
-                
-                <button class="control-btn" onclick="move('left')">⬅️ Влево</button>
-                <button class="control-btn stop" onclick="move('stop')">⏹️ Стоп</button>
-                <button class="control-btn" onclick="move('right')">➡️ Вправо</button>
-                
-                <div></div>
-                <button class="control-btn" onclick="move('backward')">⬇️ Назад</button>
-                <div></div>
+                <div id="lidar-status" class="status">Waiting...</div>
             </div>
             
-            <div class="servo-control">
-                <h3>🔧 Сервопривод (Ящик)</h3>
-                <input type="range" id="servo-slider" min="0" max="112" value="0" oninput="updateServo(this.value)">
-                <div class="servo-value"><span id="servo-value">0</span>°</div>
+            <!-- Управление -->
+            <div class="panel">
+                <h2>Control</h2>
+                <div class="controls">
+                    <div></div>
+                    <button class="control-btn" onclick="move('forward')">↑</button>
+                    <div></div>
+                    
+                    <button class="control-btn" onclick="move('left')">←</button>
+                    <button class="control-btn stop" onclick="move('stop')">■</button>
+                    <button class="control-btn" onclick="move('right')">→</button>
+                    
+                    <div></div>
+                    <button class="control-btn" onclick="move('backward')">↓</button>
+                    <div></div>
+                </div>
+                
+                <div class="servo-control">
+                    <h3>Servo</h3>
+                    <input type="range" id="servo-slider" min="0" max="112" value="0" oninput="updateServo(this.value)">
+                    <div class="servo-value"><span id="servo-value">0</span>°</div>
+                </div>
             </div>
         </div>
     </div>
     
     <script>
-        // WebSocket подключение
         const socket = io();
-        
-        // Canvas для LiDAR
         const canvas = document.getElementById('lidar-canvas');
         const ctx = canvas.getContext('2d');
         
-        // Установка размера canvas
         function resizeCanvas() {
             canvas.width = canvas.offsetWidth;
             canvas.height = canvas.offsetHeight;
@@ -212,31 +234,27 @@
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
-        // Обработка подключения
         socket.on('connect', () => {
-            document.getElementById('camera-status').textContent = 'Подключено';
+            document.getElementById('camera-status').textContent = 'Connected';
             document.getElementById('camera-status').className = 'status connected';
         });
         
-        // Обработка данных LiDAR
         socket.on('lidar_data', (data) => {
             drawLidar(data.points);
-            document.getElementById('lidar-status').textContent = `Точек: ${data.points.length}`;
+            document.getElementById('lidar-status').textContent = `${data.points.length} points`;
             document.getElementById('lidar-status').className = 'status connected';
         });
         
-        // Отрисовка LiDAR карты
         function drawLidar(points) {
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
-            const scale = Math.min(canvas.width, canvas.height) / 1500; // Масштаб
+            const scale = Math.min(canvas.width, canvas.height) / 1200;
             
-            // Очистка canvas
-            ctx.fillStyle = '#0f1419';
+            ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
             // Сетка
-            ctx.strokeStyle = '#1a2332';
+            ctx.strokeStyle = '#111';
             ctx.lineWidth = 1;
             for (let i = 100; i <= 600; i += 100) {
                 ctx.beginPath();
@@ -245,8 +263,8 @@
             }
             
             // Оси
-            ctx.strokeStyle = '#2a3f5f';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(centerX, 0);
             ctx.lineTo(centerX, canvas.height);
@@ -254,60 +272,50 @@
             ctx.lineTo(canvas.width, centerY);
             ctx.stroke();
             
-            // Робот (центр)
-            ctx.fillStyle = '#00d9ff';
+            // Робот
+            ctx.fillStyle = '#fff';
             ctx.beginPath();
-            ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+            ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
             ctx.fill();
             
             // Точки LiDAR
             points.forEach(point => {
                 const x = centerX + point.x * scale;
-                const y = centerY - point.y * scale; // Инвертируем Y
+                const y = centerY - point.y * scale;
                 
-                // Цвет в зависимости от интенсивности
-                const intensity = Math.min(255, point.intensity);
-                ctx.fillStyle = `rgb(${intensity}, ${255 - intensity}, 100)`;
-                
+                ctx.fillStyle = '#fff';
                 ctx.beginPath();
-                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.arc(x, y, 2, 0, Math.PI * 2);
                 ctx.fill();
             });
         }
         
-        // Управление движением
         async function move(direction) {
             try {
-                const response = await fetch('/api/move', {
+                await fetch('/api/move', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({direction: direction, speed: 120})
                 });
-                const data = await response.json();
-                console.log('Move:', data);
             } catch (error) {
                 console.error('Error:', error);
             }
         }
         
-        // Управление сервоприводом
         async function updateServo(angle) {
             document.getElementById('servo-value').textContent = angle;
             
             try {
-                const response = await fetch('/api/servo', {
+                await fetch('/api/servo', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({angle: parseInt(angle)})
                 });
-                const data = await response.json();
-                console.log('Servo:', data);
             } catch (error) {
                 console.error('Error:', error);
             }
         }
         
-        // Управление с клавиатуры
         document.addEventListener('keydown', (e) => {
             switch(e.key) {
                 case 'ArrowUp':
