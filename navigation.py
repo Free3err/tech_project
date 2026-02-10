@@ -1069,6 +1069,10 @@ class NavigationSystem:
         from config import OBSTACLE_MIN_DISTANCE
         
         try:
+            # Проверка что LiDAR доступен
+            if self.lidar is None:
+                return
+            
             # Получение препятствий от LiDAR
             obstacles = self.lidar.get_obstacles(OBSTACLE_MIN_DISTANCE)
             
