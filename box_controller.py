@@ -33,9 +33,7 @@ class BoxController:
         self._target_angle = config.BOX_CLOSE_ANGLE_2
         
         logger.info("BoxController initialized")
-        
-        # Убедиться, что коробка закрыта при инициализации
-        self.close()
+        # Не отправляем команду серво при инициализации - серво остается на своем месте
     
     def open(self) -> None:
         """

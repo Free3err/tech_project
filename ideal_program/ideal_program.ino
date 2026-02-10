@@ -122,7 +122,7 @@ void updateSuccessPulse() {
   }
 
   float phase = (elapsed % 1000) / 1000.0 * 2 * PI;
-  float brightness = 0.5 * (0.6 + 0.4 * sin(phase));
+  float brightness = 0.6 + 0.4 * sin(phase);
   CRGB color = CRGB(80 * brightness, 255 * brightness, 80 * brightness);
 
   drawBoth(fullEyeMask, color);
@@ -138,7 +138,7 @@ void updateFailureCross() {
   }
 
   float phase = (elapsed % 600) / 600.0 * 2 * PI;
-  float brightness = 0.7 + 0.3 * sin(phase);
+  float brightness =  0.7 + 0.3 * sin(phase);
   CRGB color = CRGB(255 * brightness, 0, 0);
 
   drawBoth(crossMask, color);
@@ -149,7 +149,7 @@ void updateWaitingAnimation() {
   // Медленная пульсация синим цветом
   unsigned long elapsed = millis() - effectStart;
   float phase = (elapsed % 2000) / 2000.0 * 2 * PI;
-  float brightness = 0.5 + 0.5 * sin(phase);
+  float brightness =0.5 + 0.5 * sin(phase);
   CRGB color = CRGB(100 * brightness, 150 * brightness, 255 * brightness);
   
   drawBoth(fullEyeMask, color);
@@ -410,12 +410,12 @@ void setup() {
   // Инициализация сервопривода
   boxServo.attach(SERVO_PIN);
   // Не устанавливаем начальную позицию - серво остается на своем месте
-  currentServoAngle = 0;  // Неизвестная позиция, будет установлена командой
+  currentServoAngle = 62;  // Неизвестная позиция, будет установлена командой
 
   // Инициализация ленты
   FastLED.addLeds<CHIPSET, LED_PIN1, COLOR_ORDER>(leds1, NUM_LEDS);
   FastLED.addLeds<CHIPSET, LED_PIN2, COLOR_ORDER>(leds2, NUM_LEDS);
-  FastLED.setBrightness(60);
+  FastLED.setBrightness(25);
 
   drawEyesFull();
   FastLED.show();
