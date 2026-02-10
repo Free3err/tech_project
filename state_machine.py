@@ -351,9 +351,9 @@ class StateMachine:
         # Следование за человеком - простое движение вперед
         base_speed = 120
         
-        # Отправка команды движения
+        # Отправка команды движения (dir=0 для движения вперед)
         try:
-            self.serial.send_motor_command(base_speed, base_speed, 0, 0)
+            self.serial.send_motor_command(base_speed, base_speed, 1, 1)
         except Exception as e:
             self.logger.error(f"Ошибка отправки команды движения: {e}")
             self.navigation.stop()
