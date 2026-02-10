@@ -122,7 +122,7 @@ void updateSuccessPulse() {
   }
 
   float phase = (elapsed % 1000) / 1000.0 * 2 * PI;
-  float brightness = 0.6 + 0.4 * sin(phase);
+  float brightness = 0.5 * (0.6 + 0.4 * sin(phase));
   CRGB color = CRGB(80 * brightness, 255 * brightness, 80 * brightness);
 
   drawBoth(fullEyeMask, color);

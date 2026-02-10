@@ -109,71 +109,28 @@ class BoxController:
     
     def _move_to_angle(self, target_angle: int) -> None:
         """
-        Плавное перемещение сервопривода к целевому углу
-        
-        Выполняет плавное движение сервопривода от текущего угла к целевому
-        с заданной скоростью для предотвращения резких движений.
+        Переместить сервопривод к целевому углу
         
         Args:
-            target_angle: Целевой угол (0-90 градусов)
+            target_angle: Целевой угол (0-180 градусов)
         
         Raises:
             ValueError: Если угол вне допустимого диапазона
             RuntimeError: Если не удалось отправить команду
         """
-        if not (0 <= target_angle <= 90):
-            raise ValueError(f"Target angle must be 0-90, got {target_angle}")
+        if not (0 <= target_angle <= 180):
+            raise ValueError(f"Target angle must be 0-180, got {target_angle}")
         
-        # Вычислить количество шагов для плавного движения
-        angle_diff = abs(target_angle - self._current_angle)
+        logger.debug(f"Moving servo to {target_angle}°")
         
-        if angle_diff == 0:
-            return
-        
-        # Время движения на основе скорости сервопривода
-        move_time = angle_diff / config.SERVO_SPEED
-        
-        # Количество шагов (минимум 1, максимум 10 для плавности)
-        num_steps = max(1, min(10, int(angle_diff / 10)))
-        step_angle = (target_angle - self._current_angle) / num_steps
-        step_delay = move_time / num_steps
-        
-        logger.debug(f"Moving servo from {self._current_angle}° to {target_angle}° "
-                    f"in {num_steps} steps over {move_time:.2f}s")
-        
-        # Выполнить плавное движение
-        start_angle = self._current_angle
-        for step in range(num_steps):
-            # Вычислить промежуточный угол и убедиться, что он в допустимом диапазоне
-            intermediate_angle = int(start_angle + step_angle * (step + 1))
-            # Ограничить угол диапазоном 0-90
-            intermediate_angle = max(0, min(90, intermediate_angle))
-            
-            try:
-                self.serial_comm.send_servo_command(intermediate_angle)
-                self._current_angle = intermediate_angle
-                
-                # Задержка между шагами
-                if step < num_steps - 1:
-                    time.sleep(step_delay)
-                    
-            except Exception as e:
-                logger.error(f"Failed to send servo command at step {step + 1}/{num_steps}: {e}")
-                raise RuntimeError(f"Servo movement failed at angle {intermediate_angle}°: {e}")
-        
-        # Убедиться, что достигли точного целевого угла
-        if self._current_angle != target_angle:
-            try:
-                self.serial_comm.send_servo_command(target_angle)
-                self._current_angle = target_angle
-            except Exception as e:
-                logger.error(f"Failed to send final servo command: {e}")
-                raise RuntimeError(f"Failed to reach target angle {target_angle}°: {e}")
-        
-        # Дополнительная задержка для завершения движения
-        time.sleep(0.2)
-        
-        logger.debug(f"Servo reached target angle: {target_angle}°")
+        # Отправить команду напрямую без плавного движения
+        try:
+            self.serial_comm.send_servo_command(target_angle)
+            self._current_angle = target_angle
+            self._target_angle = target_angle
+        except Exception as e:
+            logger.error(f"Failed to move servo to {target_angle}°: {e}")
+            raise RuntimeError(f"Failed to move servo: {e}")
     
     def emergency_close(self) -> None:
         """
