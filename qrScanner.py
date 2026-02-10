@@ -2,12 +2,22 @@ import cv2
 import json
 import logging
 import threading
+import os
 from typing import Optional, Callable, Tuple
 from playsound3 import playsound
 from db.functions import check_order
 import serialConnection
 
 logger = logging.getLogger(__name__)
+
+# Headless режим для систем без дисплея
+HEADLESS_MODE = (
+    os.environ.get('HEADLESS') == '1' or 
+    os.environ.get('QT_QPA_PLATFORM') == 'offscreen' or
+    os.environ.get('DISPLAY') is None
+)
+if HEADLESS_MODE:
+    logger.info("Запуск в headless режиме (без GUI)")
 
 
 def qr_scanner():
@@ -104,7 +114,7 @@ class OrderVerificationSystem:
         logger.info("Остановка сканирования QR кода")
         self.scanning = False
         
-        if self.scan_thread is not None:
+        if self.scan_thread is not None and self.scan_thread != threading.current_thread():
             self.scan_thread.join(timeout=2.0)
             self.scan_thread = None
             
@@ -212,12 +222,16 @@ class OrderVerificationSystem:
                         self.scanning = False
                         break
                         
-                # Отображение окна (опционально, можно отключить для headless режима)
-                cv2.imshow("QR Scanner", frame)
-                if cv2.waitKey(10) & 0xFF == 27:  # ESC для выхода
-                    logger.info("Сканирование прервано пользователем (ESC)")
-                    self.scanning = False
-                    break
+                # Отображение окна только если не headless режим
+                if not HEADLESS_MODE:
+                    cv2.imshow("QR Scanner", frame)
+                    if cv2.waitKey(10) & 0xFF == 27:  # ESC для выхода
+                        logger.info("Сканирование прервано пользователем (ESC)")
+                        self.scanning = False
+                        break
+                else:
+                    # В headless режиме просто небольшая задержка
+                    cv2.waitKey(10)
                     
         except Exception as e:
             logger.error(f"Ошибка сканирования: {e}", exc_info=True)
@@ -227,5 +241,6 @@ class OrderVerificationSystem:
             if self.cap is not None:
                 self.cap.release()
                 self.cap = None
-            cv2.destroyAllWindows()
-            logger.debug("Камера освобождена, окна закрыты")
+            if not HEADLESS_MODE:
+                cv2.destroyAllWindows()
+            logger.debug("Камера освобождена")

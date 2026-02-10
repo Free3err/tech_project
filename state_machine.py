@@ -384,8 +384,8 @@ class StateMachine:
         
         self._verification_callback_received = True
         
-        # Остановка сканирования
-        self.order_verifier.stop_scanning()
+        # Остановка сканирования будет выполнена в основном потоке
+        # Здесь только устанавливаем флаг
         
         if is_valid and order_id is not None:
             self.logger.info(f"Заказ {order_id} успешно проверен")
@@ -396,6 +396,9 @@ class StateMachine:
             # Воспроизведение звука успеха
             self.audio.announce_order_accepted()
             
+            # Остановка сканирования (безопасно из основного потока)
+            self.order_verifier.stop_scanning()
+            
             # Переход к навигации на склад
             self.transition_to(State.NAVIGATING_TO_WAREHOUSE)
         else:
@@ -403,6 +406,9 @@ class StateMachine:
             
             # Воспроизведение звука неудачи
             self.audio.announce_order_rejected()
+            
+            # Остановка сканирования (безопасно из основного потока)
+            self.order_verifier.stop_scanning()
             
             # Возврат в состояние ожидания
             self.transition_to(State.WAITING)

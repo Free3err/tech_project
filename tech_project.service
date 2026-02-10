@@ -6,6 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/home/roman/tech_project
+Environment="HEADLESS=1"
+Environment="QT_QPA_PLATFORM=offscreen"
 ExecStart=/home/roman/tech_project/.venv/bin/python /home/roman/tech_project/main.py
 Restart=always
 RestartSec=5
