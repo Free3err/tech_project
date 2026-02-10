@@ -3,6 +3,7 @@ import serial
 import math
 import logging
 from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List
 from navigation import ScanPoint
 import config
 
@@ -22,11 +23,17 @@ class LiDARInterface:
                 port=self.port,
                 baudrate=self.baudrate,
                 timeout=0.1
+                timeout=0.1
             )
+            self.logger.info(f"LiDAR подключен: {self.port}")
             self.logger.info(f"LiDAR подключен: {self.port}")
         except Exception as e:
             self.logger.error(f"Ошибка подключения LiDAR: {e}")
+            self.logger.error(f"Ошибка подключения LiDAR: {e}")
             raise
+    
+    def get_scan(self) -> List[ScanPoint]:
+        """Получить сканирование LiDAR"""
     
     def get_scan(self) -> List[ScanPoint]:
         """Получить сканирование LiDAR"""
@@ -62,6 +69,7 @@ class LiDARInterface:
         
         except Exception as e:
             self.logger.debug(f"Ошибка чтения LiDAR: {e}")
+            self.logger.debug(f"Ошибка чтения LiDAR: {e}")
         
         return points
     
@@ -69,6 +77,7 @@ class LiDARInterface:
         """Обнаружить человека"""
         scan = self.get_scan()
         
+        if len(scan) < 3:
         if len(scan) < 3:
             return None
         
@@ -86,6 +95,7 @@ class LiDARInterface:
         scan = self.get_scan()
         obstacles = []
         
+        
         for point in scan:
             if point.distance < min_distance:
                 x = point.distance * math.cos(point.angle)
@@ -94,6 +104,9 @@ class LiDARInterface:
         
         return obstacles
     
+    def close(self):
+        if self.serial_conn:
+            self.serial_conn.close()
     def close(self):
         if self.serial_conn:
             self.serial_conn.close()
