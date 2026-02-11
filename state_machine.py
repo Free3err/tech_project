@@ -604,12 +604,19 @@ class StateMachine:
         # Слушаем 10 секунд
         if self._listening:
             listen_elapsed = time.time() - self._listen_start_time
-
-
             
-            if listen_elapsed >= 4.0:
-                # Распознавание речи
-                recognized_code = self._recognize_voice_code()
+            # Запуск потока распознавания если еще не запущен
+            if not hasattr(self, '_recognition_thread'):
+                self.logger.info("Запуск потока распознавания речи")
+                import threading
+                self._recognition_result = None
+                self._recognition_thread = threading.Thread(target=self._recognize_voice_code_thread)
+                self._recognition_thread.daemon = True
+                self._recognition_thread.start()
+            
+            # Проверка результата распознавания
+            if hasattr(self, '_recognition_result') and self._recognition_result is not None:
+                recognized_code = self._recognition_result
                 
                 if recognized_code == "2245":
                     # Код правильный
@@ -651,6 +658,18 @@ class StateMachine:
                         delattr(self, '_recognition_thread')
                     if hasattr(self, '_recognition_result'):
                         delattr(self, '_recognition_result')
+    
+    def _recognize_voice_code_thread(self) -> None:
+        """
+        Поток для распознавания голосового кода (не блокирует главный цикл)
+        Результат сохраняется в self._recognition_result
+        """
+        try:
+            code = self._recognize_voice_code()
+            self._recognition_result = code
+        except Exception as e:
+            self.logger.error(f"Ошибка в потоке распознавания: {e}")
+            self._recognition_result = ""
     
     def _recognize_voice_code(self) -> str:
         """
