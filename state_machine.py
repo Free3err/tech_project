@@ -718,7 +718,7 @@ class StateMachine:
             if self._code_requested:
                 request_elapsed = time.time() - self._request_time
                 
-                if request_elapsed >= 2.0:
+                if request_elapsed >= 3.0:
                     # Распознавание речи (блокирует главный цикл!)
                     recognized_code = self._recognize_voice_code()
                     
