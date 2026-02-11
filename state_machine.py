@@ -653,14 +653,7 @@ class StateMachine:
             
             # Остановка всех движений
             self.navigation.stop()
-            
-            # Закрытие коробки если открыта
-            try:
-                if self.box_controller.is_open():
-                    self.box_controller.close()
-            except Exception as e:
-                self.logger.error(f"Ошибка закрытия коробки при восстановлении: {e}")
-            
+
             # Воспроизведение звука ошибки
             try:
                 self.audio.play_error_sound()
