@@ -608,20 +608,13 @@ class StateMachine:
         Returns:
             Распознанный код или пустая строка
         """
-        # TODO: Временная заглушка - всегда возвращает "1111" для тестирования
-        # Раскомментируй код ниже когда настроишь микрофон
-        self.logger.info("ЗАГЛУШКА: возвращаю код 1111")
-        return "1111"
-        
-        # Реальное распознавание (закомментировано):
-        """
         try:
             import speech_recognition as sr
             
             recognizer = sr.Recognizer()
             
-            # Используем микрофон по умолчанию
-            with sr.Microphone() as source:
+            # Используем микрофон камеры (устройство 1)
+            with sr.Microphone(device_index=1) as source:
                 self.logger.info("Настройка микрофона...")
                 recognizer.adjust_for_ambient_noise(source, duration=0.2)
                 
@@ -656,7 +649,6 @@ class StateMachine:
         except Exception as e:
             self.logger.error(f"Ошибка распознавания речи: {e}")
             return ""
-        """
     
     def update_delivering_state(self) -> None:
         """
