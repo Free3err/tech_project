@@ -395,16 +395,16 @@ class StateMachine:
                 self.logger.debug(f"Ожидание задержки: {elapsed:.1f}/{self._rejection_delay_duration}с")
                 return
             else:
-                # Задержка прошла, возврат в WAITING
-                self.logger.info("=== Задержка завершена, возврат в WAITING ===")
+                # Задержка прошла, перезапуск сканирования
+                self.logger.info("=== Задержка завершена, перезапуск сканирования ===")
                 delattr(self, '_rejection_delay_start')
                 delattr(self, '_rejection_delay_duration')
                 
-                # Очистка флагов
+                # Очистка флагов для перезапуска
                 if hasattr(self, '_verifying_started'):
                     delattr(self, '_verifying_started')
                 self._verification_callback_received = False
-                return
+                # НЕ возвращаемся в WAITING, продолжаем выполнение для перезапуска сканирования
         
         # Проверка задержки перед переходом к LOADING
         if hasattr(self, '_loading_delay_start'):
@@ -498,9 +498,12 @@ class StateMachine:
             # Воспроизведение звука неудачи
             self.audio.announce_order_rejected()
             
-            # Установка времени задержки перед возвратом в WAITING (3 секунды чтобы аудио успело проиграться)
+            # Остановка сканирования
+            self.order_verifier.stop_scanning()
+            
+            # Установка времени задержки перед повторным сканированием (5 секунд чтобы аудио успело проиграться)
             self._rejection_delay_start = time.time()
-            self._rejection_delay_duration = 5.0  # 3 секунды задержки
+            self._rejection_delay_duration = 5.0
 
             delattr(self, '_verifying_started')
             
