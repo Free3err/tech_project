@@ -9,7 +9,7 @@
 #define IK_SENS A1   // ИК-датчик
 #define LED_PIN1 11  // Глаз 1
 #define LED_PIN2 12  // Глаз 2
-#define SERVO_PIN 10  // Сервопривод коробки
+#define SERVO_PIN 13  // Сервопривод коробки
 
 // Пины энкодеров
 #define ENCODER_L_A 2   // Левый энкодер, канал A
