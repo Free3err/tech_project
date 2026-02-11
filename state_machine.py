@@ -645,10 +645,14 @@ class StateMachine:
         try:
             if self._return_nav_step == 1:
                 # Шаг 1: Поворот налево 180° (примерно 2 секунды)
+                self.logger.info(f">>> Шаг 1: поворот налево, elapsed={elapsed:.2f}с")
                 if elapsed < 2.0:
                     # Поворот налево: правое колесо вперед, левое назад
-                    self.logger.debug(f"Шаг 1: поворот налево, elapsed={elapsed:.2f}с")
-                    self.serial.send_motor_command(140, 140, 0, 1)
+                    try:
+                        self.serial.send_motor_command(140, 140, 0, 1)
+                        self.logger.debug("Команда моторов отправлена")
+                    except Exception as e:
+                        self.logger.error(f"Ошибка отправки команды моторов: {e}")
                 else:
                     # Остановка
                     self.serial.send_motor_command(0, 0, 1, 1)
