@@ -88,6 +88,7 @@ def send_motor_command(left_speed: int, right_speed: int, left_dir: int, right_d
     
     # Отправка команды
     ser.write(command.encode())
+    ser.flush()  # Принудительная отправка данных
 
 
 def send_servo_command(angle: int) -> None:
@@ -118,6 +119,7 @@ def send_servo_command(angle: int) -> None:
     
     # Отправка команды
     ser.write(command.encode())
+    ser.flush()  # Принудительная отправка данных
 
 
 def send_led_command(command: str) -> None:
@@ -150,6 +152,7 @@ def send_led_command(command: str) -> None:
     
     # Отправка команды
     ser.write(cmd.encode())
+    ser.flush()  # Принудительная отправка данных
 
 
 def read_sensor_data(timeout: float = 0.5) -> Optional[Dict[str, Any]]:
