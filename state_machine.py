@@ -744,7 +744,7 @@ class StateMachine:
                     # Удаляем главный флаг старта, чтобы логика началась сначала (запрос кода -> слушание)
                     delattr(self, '_voice_verification_started')
                     
-        def _cleanup_voice_flags(self):
+    def _cleanup_voice_flags(self):
             """Вспомогательный метод очистки флагов голоса"""
             if hasattr(self, '_voice_verification_started'): delattr(self, '_voice_verification_started')
             if hasattr(self, '_voice_start_time'): delattr(self, '_voice_start_time')
