@@ -539,7 +539,7 @@ class StateMachine:
         
         elapsed = time.time() - self._loading_step_start
         
-        # Фаза 0: Поворот назад (0-2.0 сек)
+        # Фаза 0: Поворот назад (0-1.9 сек)
         if self._movement_phase == 0:
             if elapsed < 0.1:
                 # Отправляем команду поворота один раз
@@ -548,7 +548,7 @@ class StateMachine:
                     self._turn_command_sent = True
                     self.logger.info("Имитация: поворот назад к складу")
                 return
-            elif elapsed >= 2.0:
+            elif elapsed >= 1.9:
                 # Переход к следующей фазе
                 self._movement_phase = 1
                 if hasattr(self, '_turn_command_sent'):
@@ -558,16 +558,16 @@ class StateMachine:
             else:
                 return
         
-        # Фаза 1: Движение назад (2.0-4.0 сек)
+        # Фаза 1: Движение назад (1.9-3.9 сек)
         if self._movement_phase == 1:
-            if elapsed < 2.1:
+            if elapsed < 2.0:
                 # Отправляем команду движения назад один раз
                 if not hasattr(self, '_backward_command_sent'):
                     self.serial.send_motor_command(140, 140, 1, 1)
                     self._backward_command_sent = True
                     self.logger.info("Имитация: движение назад к складу")
                 return
-            elif elapsed >= 4.0:
+            elif elapsed >= 3.9:
                 # Переход к следующей фазе
                 self._movement_phase = 2
                 if hasattr(self, '_backward_command_sent'):
@@ -577,7 +577,7 @@ class StateMachine:
             else:
                 return
         
-        # Фаза 2: Остановка (4.0 сек)
+        # Фаза 2: Остановка (3.9 сек)
         if self._movement_phase == 2:
             if not hasattr(self, '_stop_command_sent'):
                 self.serial.send_motor_command(0, 0, 1, 1)
