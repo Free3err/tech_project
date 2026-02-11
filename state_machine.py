@@ -524,6 +524,7 @@ class StateMachine:
         Обновление состояния LOADING
         
         Погрузка:
+        - Имитация движения на склад (поворот назад + движение назад)
         - Произносит номер заказа
         - Ждет таймаут из конфига
         - Озвучивает окончание загрузки
@@ -532,13 +533,71 @@ class StateMachine:
         if not hasattr(self, '_loading_started'):
             self._loading_started = True
             self._loading_step_start = time.time()
+            self._movement_phase = 0  # 0: поворот назад, 1: движение назад, 2: остановка, 3: загрузка
             
-            # Произносит номер заказа
+            self.logger.info("=== LOADING: Начало имитации движения на склад ===")
+        
+        elapsed = time.time() - self._loading_step_start
+        
+        # Фаза 0: Поворот назад (0-1.1 сек)
+        if self._movement_phase == 0:
+            if elapsed < 0.1:
+                # Отправляем команду поворота один раз
+                if not hasattr(self, '_turn_command_sent'):
+                    self.serial.send_motor_command(140, 140, 0, 1)
+                    self._turn_command_sent = True
+                    self.logger.info("Имитация: поворот назад к складу")
+                return
+            elif elapsed >= 1.1:
+                # Переход к следующей фазе
+                self._movement_phase = 1
+                delattr(self, '_turn_command_sent')
+                self.logger.info("Имитация: поворот завершен")
+                return
+            else:
+                return
+        
+        # Фаза 1: Движение назад (1.1-3.1 сек)
+        if self._movement_phase == 1:
+            if elapsed < 1.2:
+                # Отправляем команду движения назад один раз
+                if not hasattr(self, '_backward_command_sent'):
+                    self.serial.send_motor_command(140, 140, 1, 1)
+                    self._backward_command_sent = True
+                    self.logger.info("Имитация: движение назад к складу")
+                return
+            elif elapsed >= 3.1:
+                # Переход к следующей фазе
+                self._movement_phase = 2
+                delattr(self, '_backward_command_sent')
+                self.logger.info("Имитация: движение завершено")
+                return
+            else:
+                return
+        
+        # Фаза 2: Остановка (3.1 сек)
+        if self._movement_phase == 2:
+            if not hasattr(self, '_stop_command_sent'):
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self._stop_command_sent = True
+                self.logger.info("Имитация: остановка на складе")
+            self._movement_phase = 3
+            delattr(self, '_stop_command_sent')
+            
+            # Произносит номер заказа после прибытия на склад
             if self.context.current_order_id is not None:
                 self.audio.announce_order_number(self.context.current_order_id)
             
-            self.logger.info(f"Ожидание загрузки ({config.LOADING_CONFIRMATION_TIMEOUT}с)")
+            # Сброс таймера для отсчета времени загрузки
+            self._loading_step_start = time.time()
+            self.logger.info(f"=== Прибытие на склад, начало загрузки ({config.LOADING_CONFIRMATION_TIMEOUT}с) ===")
+            return
         
+        # Фаза 3: Загрузка
+        if self._movement_phase < 3:
+            return
+        
+        # Пересчитываем elapsed после сброса таймера
         elapsed = time.time() - self._loading_step_start
         
         # Ожидание таймаута загрузки
@@ -549,6 +608,7 @@ class StateMachine:
             # Очистка флагов
             delattr(self, '_loading_started')
             delattr(self, '_loading_step_start')
+            delattr(self, '_movement_phase')
             
             self.logger.info("Загрузка завершена, переход к голосовой верификации")
             self.transition_to(State.VOICE_VERIFICATION)
