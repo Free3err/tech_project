@@ -23,6 +23,7 @@ class State(Enum):
     - NAVIGATING_TO_WAREHOUSE: Навигация к зоне загрузки склада
     - LOADING: Ожидание загрузки посылки на складе
     - RETURNING_TO_CUSTOMER: Возврат к клиенту с посылкой
+    - VOICE_VERIFICATION: Голосовая верификация кода перед выдачей
     - DELIVERING: Доставка посылки клиенту
     - RESETTING: Возврат в домашнюю позицию после доставки
     - ERROR_RECOVERY: Восстановление после ошибки
@@ -34,6 +35,7 @@ class State(Enum):
     NAVIGATING_TO_WAREHOUSE = "NAVIGATING_TO_WAREHOUSE"
     LOADING = "LOADING"
     RETURNING_TO_CUSTOMER = "RETURNING_TO_CUSTOMER"
+    VOICE_VERIFICATION = "VOICE_VERIFICATION"
     DELIVERING = "DELIVERING"
     RESETTING = "RESETTING"
     ERROR_RECOVERY = "ERROR_RECOVERY"
@@ -127,7 +129,7 @@ class StateMachine:
             elif state in [State.APPROACHING, State.NAVIGATING_TO_WAREHOUSE, 
                           State.RETURNING_TO_CUSTOMER, State.RESETTING]:
                 self.serial.send_led_command("LED_MOVING")
-            elif state in [State.VERIFYING, State.LOADING, State.DELIVERING]:
+            elif state in [State.VERIFYING, State.LOADING, State.VOICE_VERIFICATION, State.DELIVERING]:
                 self.serial.send_led_command("LED_WAITING")
             elif state in [State.ERROR_RECOVERY, State.EMERGENCY_STOP]:
                 self.serial.send_led_command("LED_ERROR")
@@ -256,6 +258,8 @@ class StateMachine:
                 self.update_loading_state()
             elif self.current_state == State.RETURNING_TO_CUSTOMER:
                 self.update_returning_to_customer_state()
+            elif self.current_state == State.VOICE_VERIFICATION:
+                self.update_voice_verification_state()
             elif self.current_state == State.DELIVERING:
                 self.update_delivering_state()
             elif self.current_state == State.RESETTING:
@@ -279,6 +283,7 @@ class StateMachine:
         """
         # Проверка доступности LiDAR
         if self.lidar is None:
+            self.logger.debug("LiDAR недоступен в WAITING")
             return
         
         # Debounce: проверяем не слишком ли часто обнаруживаем
@@ -292,6 +297,7 @@ class StateMachine:
         if person_position is not None:
             # Debounce: игнорируем обнаружения чаще чем раз в 2 секунды
             if current_time - self._last_detection_time < 2.0:
+                self.logger.debug(f"Обнаружение проигнорировано (debounce): {current_time - self._last_detection_time:.2f}с")
                 return
             
             self._last_detection_time = current_time
@@ -470,6 +476,7 @@ class StateMachine:
         
         Пустое состояние - ничего не делает.
         """
+
         pass
     
     def update_loading_state(self) -> None:
@@ -479,6 +486,8 @@ class StateMachine:
         Погрузка:
         - Произносит номер заказа
         - Ждет таймаут из конфига
+        - Озвучивает окончание загрузки
+        - Переход к голосовой верификации
         """
         if not hasattr(self, '_loading_started'):
             self._loading_started = True
@@ -494,12 +503,15 @@ class StateMachine:
         
         # Ожидание таймаута загрузки
         if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
+            # Озвучка окончания загрузки
+            self.audio.announce_loading_complete()
+            
             # Очистка флагов
             delattr(self, '_loading_started')
             delattr(self, '_loading_step_start')
             
-            self.logger.info("Загрузка завершена, переход к доставке")
-            self.transition_to(State.DELIVERING)
+            self.logger.info("Загрузка завершена, переход к голосовой верификации")
+            self.transition_to(State.VOICE_VERIFICATION)
     
     def update_returning_to_customer_state(self) -> None:
         """
@@ -508,6 +520,99 @@ class StateMachine:
         Пустое состояние - ничего не делает.
         """
         pass
+    
+    def update_voice_verification_state(self) -> None:
+        """
+        Обновление состояния VOICE_VERIFICATION
+        
+        Голосовая верификация кода перед выдачей:
+        - Запрашивает код голосом
+        - Слушает 10 секунд
+        - Проверяет код (тестовый: "1111")
+        - Если правильно -> DELIVERING
+        - Если неправильно -> повторный запрос
+        """
+        if not hasattr(self, '_voice_verification_started'):
+            self._voice_verification_started = True
+            self._voice_start_time = time.time()
+            self._listening = False
+            
+            # Запрос кода
+            self.audio.request_voice_code()
+            self.logger.info("Запрос голосового кода")
+        
+        elapsed = time.time() - self._voice_start_time
+        
+        # Начинаем слушать через 2 секунды (после озвучки запроса)
+        if elapsed >= 2.0 and not self._listening:
+            self._listening = True
+            self._listen_start_time = time.time()
+            self.logger.info("Начало прослушивания голосового кода (10 секунд)")
+        
+        # Слушаем 10 секунд
+        if self._listening:
+            listen_elapsed = time.time() - self._listen_start_time
+            
+            if listen_elapsed >= 10.0:
+                # Распознавание речи
+                recognized_code = self._recognize_voice_code()
+                
+                if recognized_code == "1111":
+                    # Код правильный
+                    self.logger.info("Голосовой код верный, переход к выдаче")
+                    self.audio.announce_code_accepted()
+                    
+                    # Очистка флагов
+                    delattr(self, '_voice_verification_started')
+                    delattr(self, '_voice_start_time')
+                    delattr(self, '_listening')
+                    delattr(self, '_listen_start_time')
+                    
+                    self.transition_to(State.DELIVERING)
+                else:
+                    # Код неправильный - повторный запрос
+                    self.logger.warning(f"Голосовой код неверный: {recognized_code}")
+                    self.audio.announce_code_rejected()
+                    
+                    # Сброс для повторной попытки
+                    delattr(self, '_voice_verification_started')
+                    delattr(self, '_voice_start_time')
+                    delattr(self, '_listening')
+                    delattr(self, '_listen_start_time')
+    
+    def _recognize_voice_code(self) -> str:
+        """
+        Распознавание голосового кода с микрофона
+        
+        Returns:
+            Распознанный код или пустая строка
+        """
+        try:
+            import speech_recognition as sr
+            
+            recognizer = sr.Recognizer()
+            with sr.Microphone() as source:
+                self.logger.info("Распознавание речи...")
+                recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                audio = recognizer.listen(source, timeout=10, phrase_time_limit=5)
+                
+                # Распознавание через Google Speech Recognition
+                text = recognizer.recognize_google(audio, language='ru-RU')
+                self.logger.info(f"Распознан текст: {text}")
+                
+                # Извлечение цифр из текста
+                import re
+                digits = re.findall(r'\d+', text)
+                if digits:
+                    code = ''.join(digits)
+                    self.logger.info(f"Извлечен код: {code}")
+                    return code
+                
+                return ""
+                
+        except Exception as e:
+            self.logger.error(f"Ошибка распознавания речи: {e}")
+            return ""
     
     def update_delivering_state(self) -> None:
         """
