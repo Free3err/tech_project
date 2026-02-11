@@ -620,13 +620,20 @@ class StateMachine:
                     self.logger.info("Голосовой код верный")
                     self.audio.announce_code_accepted()
                     
-                    # Очистка флагов
+                    # Очистка флагов и потока распознавания
                     delattr(self, '_voice_verification_started')
                     delattr(self, '_voice_start_time')
                     delattr(self, '_code_requested')
                     delattr(self, '_request_time')
                     delattr(self, '_listening')
                     delattr(self, '_listen_start_time')
+                    
+                    # Очистка потока распознавания если есть
+                    if hasattr(self, '_recognition_thread'):
+                        self.logger.info("Очистка потока распознавания")
+                        delattr(self, '_recognition_thread')
+                    if hasattr(self, '_recognition_result'):
+                        delattr(self, '_recognition_result')
                     
                     self.logger.info("Переход к выдаче заказа")
                     self.transition_to(State.DELIVERING)
@@ -642,6 +649,12 @@ class StateMachine:
                     delattr(self, '_request_time')
                     delattr(self, '_listening')
                     delattr(self, '_listen_start_time')
+                    
+                    # Очистка потока распознавания если есть
+                    if hasattr(self, '_recognition_thread'):
+                        delattr(self, '_recognition_thread')
+                    if hasattr(self, '_recognition_result'):
+                        delattr(self, '_recognition_result')
     
     def _recognize_voice_code(self) -> str:
         """
