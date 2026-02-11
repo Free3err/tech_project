@@ -573,7 +573,7 @@ class StateMachine:
                 # Распознавание речи
                 recognized_code = self._recognize_voice_code()
                 
-                if recognized_code == "1111":
+                if recognized_code == "1234":
                     # Код правильный
                     self.logger.info("Голосовой код верный")
                     self.audio.announce_code_accepted()
