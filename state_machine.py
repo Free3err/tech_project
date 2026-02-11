@@ -231,6 +231,14 @@ class StateMachine:
         
         Вызывает соответствующий обработчик состояния и обрабатывает исключения
         """
+        # DEBUG: Проверка что update вызывается
+        if self.current_state == State.DELIVERING:
+            if not hasattr(self, '_update_call_count'):
+                self._update_call_count = 0
+            self._update_call_count += 1
+            if self._update_call_count % 10 == 1:  # Каждый 10-й вызов
+                self.logger.info(f">>> DEBUG: update() вызван {self._update_call_count} раз в DELIVERING")
+        
         try:
             # Проверка таймаута состояния
             if self._check_state_timeout():
@@ -745,7 +753,10 @@ class StateMachine:
         - Ожидание 10 секунд
         - Переход в WAITING
         """
+        self.logger.info(">>> DEBUG: Вход в update_delivering_state()")
+        
         if not hasattr(self, '_delivery_started'):
+            self.logger.info(">>> DEBUG: Инициализация флагов DELIVERING")
             self._delivery_started = True
             self._delivery_start_time = time.time()
             self._greeting_played = False
@@ -754,10 +765,12 @@ class StateMachine:
             self.logger.info("Ожидание 5 секунд перед голосовым сообщением")
         
         elapsed = time.time() - self._delivery_start_time
+        self.logger.info(f">>> DEBUG: elapsed = {elapsed:.2f}")
         
         # Логирование каждую секунду для отладки
         if not hasattr(self, '_last_log_time'):
             self._last_log_time = 0
+            self.logger.info(">>> DEBUG: Инициализация _last_log_time")
         
         if int(elapsed) > self._last_log_time:
             self._last_log_time = int(elapsed)
