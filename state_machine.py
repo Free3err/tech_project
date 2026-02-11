@@ -634,50 +634,47 @@ class StateMachine:
             """
             Обновление состояния VOICE_VERIFICATION
             
-            Исправлено: Распознавание теперь работает в отдельном потоке, 
-            чтобы не блокировать основной цикл (update) во время прослушивания.
+            Возврат к клиенту + голосовая верификация
             """
-            self._loading_step_start = time.time()
-            self._movement_phase = 0
-            self.logger.info("=== LOADING: Начало имитации движения к пользователю ===")
+            if not hasattr(self, '_voice_verification_started'):
+                self._voice_verification_started = True
+                self._loading_step_start = time.time()
+                self._movement_phase = 0
+                self.logger.info("=== VOICE_VERIFICATION: Начало имитации движения к клиенту ===")
             
             elapsed = time.time() - self._loading_step_start
 
-            # --- ДВИЖЕНИЕ НА СКЛАД ---
+            # --- ВОЗВРАТ К КЛИЕНТУ ---
             
-            # Фаза 0: Поворот назад (0-1.9 сек)
+            # Фаза 0: Поворот к клиенту (0-1.9 сек)
             if self._movement_phase == 0:
                 if elapsed < 0.1:
                     if not hasattr(self, '_turn_command_sent'):
-                        # Поворот (левый мотор назад, правый вперед) или наоборот, как настроено
                         self.serial.send_motor_command(140, 140, 0, 1)
                         self._turn_command_sent = True
-                        self.logger.info("Имитация: поворот назад к складу")
-                    return
+                        self.logger.info("Возврат: поворот к клиенту")
                 elif elapsed >= 1.9:
                     self._movement_phase = 1
-                    self._loading_step_start = time.time() # Сброс таймера
+                    self._loading_step_start = time.time()
                     if hasattr(self, '_turn_command_sent'):
                         delattr(self, '_turn_command_sent')
-                    self.logger.info("Имитация: поворот завершен")
-                    return
+                    self.logger.info("Возврат: поворот завершен")
+                return
 
-            # Фаза 1: Движение назад (или вперед вглубь склада)
+            # Фаза 1: Движение к клиенту
             elif self._movement_phase == 1:
                 if elapsed < 0.1:
-                    if not hasattr(self, '_backward_command_sent'):
-                        # Движение (1, 1 - это вперед в текущей ориентации)
-                        self.serial.send_motor_command(140, 140, 1, 1)
-                        self._backward_command_sent = True
-                        self.logger.info("Имитация: движение к складу")
-                    return
-                elif elapsed >= 2.0: # Длительность движения
+                    if not hasattr(self, '_forward_command_sent'):
+                        self.serial.send_motor_command(140, 140, 1, 0)
+                        self._forward_command_sent = True
+                        self.logger.info("Возврат: движение к клиенту")
+                elif elapsed >= 2.0:
                     self._movement_phase = 2
                     self._loading_step_start = time.time()
-                    if hasattr(self, '_backward_command_sent'):
-                        delattr(self, '_backward_command_sent')
-                    self.logger.info("Имитация: движение завершено")
-                    return
+                    if hasattr(self, '_forward_command_sent'):
+                        delattr(self, '_forward_command_sent')
+                    self.logger.info("Возврат: движение завершено")
+                return
 
             # Фаза 2: Остановка на складе
             elif self._movement_phase == 2:
