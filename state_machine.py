@@ -487,12 +487,14 @@ class StateMachine:
             self._loading_step = 0
             self._loading_step_start = time.time()
             
-            # Произносит номер заказа
-            if self.context.current_order_id is not None:
-                self.audio.announce_order_number(self.context.current_order_id)
+            # Произносит номер заказа (пропускаем если аудио недоступно)
+            if self.audio and self.context.current_order_id is not None:
+                try:
+                    self.audio.announce_order_number(self.context.current_order_id)
+                except Exception as e:
+                    self.logger.warning(f"Ошибка воспроизведения номера заказа: {e}")
             
             # Открытие серво
-            self.serial.send_servo_command(config.BOX_OPEN_ANGLE)
             self.logger.info(f"Открытие коробки для загрузки ({config.BOX_OPEN_ANGLE}°)")
         
         elapsed = time.time() - self._loading_step_start
