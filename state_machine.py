@@ -548,10 +548,11 @@ class StateMachine:
                     self._turn_command_sent = True
                     self.logger.info("Имитация: поворот назад к складу")
                 return
-            elif elapsed >= 1.2:
+            elif elapsed >= 1.1:
                 # Переход к следующей фазе
                 self._movement_phase = 1
-                delattr(self, '_turn_command_sent')
+                if hasattr(self, '_turn_command_sent'):
+                    delattr(self, '_turn_command_sent')
                 self.logger.info("Имитация: поворот завершен")
                 return
             else:
@@ -559,7 +560,7 @@ class StateMachine:
         
         # Фаза 1: Движение назад (1.1-3.1 сек)
         if self._movement_phase == 1:
-            if elapsed < 1.2:
+            if elapsed < 1.3:
                 # Отправляем команду движения назад один раз
                 if not hasattr(self, '_backward_command_sent'):
                     self.serial.send_motor_command(140, 140, 1, 1)
@@ -569,8 +570,8 @@ class StateMachine:
             elif elapsed >= 3.1:
                 # Переход к следующей фазе
                 self._movement_phase = 2
-                self.serial.send_motor_command(0, 0, 1, 1)
-                delattr(self, '_backward_command_sent')
+                if hasattr(self, '_backward_command_sent'):
+                    delattr(self, '_backward_command_sent')
                 self.logger.info("Имитация: движение завершено")
                 return
             else:
@@ -583,7 +584,8 @@ class StateMachine:
                 self._stop_command_sent = True
                 self.logger.info("Имитация: остановка на складе")
             self._movement_phase = 3
-            delattr(self, '_stop_command_sent')
+            if hasattr(self, '_stop_command_sent'):
+                delattr(self, '_stop_command_sent')
             
             # Произносит номер заказа после прибытия на склад
             if self.context.current_order_id is not None:
