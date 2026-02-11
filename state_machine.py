@@ -597,23 +597,72 @@ class StateMachine:
             return
         
         # Фаза 3: Загрузка
-        if self._movement_phase < 3:
+        if self._movement_phase == 3:
+            # Пересчитываем elapsed после сброса таймера
+            elapsed = time.time() - self._loading_step_start
+            
+            # Ожидание таймаута загрузки
+            if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
+                # Озвучка окончания загрузки
+                self.audio.announce_loading_complete()
+                
+                # Переход к фазе 4 (возврат к клиенту)
+                self._movement_phase = 4
+                self._loading_step_start = time.time()  # Сброс таймера для возврата
+                self.logger.info("=== Загрузка завершена, начало возврата к клиенту ===")
             return
         
-        # Пересчитываем elapsed после сброса таймера
-        elapsed = time.time() - self._loading_step_start
+        # Фаза 4: Поворот к клиенту (0-1.9 сек)
+        if self._movement_phase == 4:
+            elapsed = time.time() - self._loading_step_start
+            if elapsed < 0.1:
+                if not hasattr(self, '_return_turn_sent'):
+                    self.serial.send_motor_command(140, 140, 0, 1)
+                    self._return_turn_sent = True
+                    self.logger.info("Имитация: поворот к клиенту")
+                return
+            elif elapsed >= 1.9:
+                self._movement_phase = 5
+                if hasattr(self, '_return_turn_sent'):
+                    delattr(self, '_return_turn_sent')
+                self.logger.info("Имитация: поворот к клиенту завершен")
+                return
+            else:
+                return
         
-        # Ожидание таймаута загрузки
-        if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
-            # Озвучка окончания загрузки
-            self.audio.announce_loading_complete()
+        # Фаза 5: Движение к клиенту (1.9-3.9 сек)
+        if self._movement_phase == 5:
+            elapsed = time.time() - self._loading_step_start
+            if elapsed < 2.0:
+                if not hasattr(self, '_return_forward_sent'):
+                    self.serial.send_motor_command(140, 140, 1, 0)
+                    self._return_forward_sent = True
+                    self.logger.info("Имитация: движение к клиенту")
+                return
+            elif elapsed >= 3.9:
+                self._movement_phase = 6
+                if hasattr(self, '_return_forward_sent'):
+                    delattr(self, '_return_forward_sent')
+                self.logger.info("Имитация: движение к клиенту завершено")
+                return
+            else:
+                return
+        
+        # Фаза 6: Остановка у клиента
+        if self._movement_phase == 6:
+            if not hasattr(self, '_return_stop_sent'):
+                self.serial.send_motor_command(0, 0, 1, 0)
+                self._return_stop_sent = True
+                self.logger.info("Имитация: остановка у клиента")
             
             # Очистка флагов
             delattr(self, '_loading_started')
             delattr(self, '_loading_step_start')
             delattr(self, '_movement_phase')
+            if hasattr(self, '_return_stop_sent'):
+                delattr(self, '_return_stop_sent')
             
-            self.logger.info("Загрузка завершена, переход к голосовой верификации")
+            self.logger.info("Возврат к клиенту завершен, переход к голосовой верификации")
             self.transition_to(State.VOICE_VERIFICATION)
     
     def update_returning_to_customer_state(self) -> None:
@@ -629,7 +678,6 @@ class StateMachine:
         Обновление состояния VOICE_VERIFICATION
         
         Голосовая верификация кода перед выдачей:
-        - Имитация возвращения к клиенту (поворот вперед + движение вперед)
         - Запрашивает код голосом
         - Слушает и распознает речь
         - Проверяет код (тестовый: "2245")
@@ -641,70 +689,13 @@ class StateMachine:
             self._voice_start_time = time.time()
             self._code_requested = False
             self._listening = False
-            self._movement_phase = 0  # 0: поворот вперед, 1: движение вперед, 2: остановка, 3: готов к верификации
             
-            self.logger.info("=== VOICE_VERIFICATION: Начало имитации возвращения к клиенту ===")
+            self.logger.info("=== VOICE_VERIFICATION: Начало голосовой верификации ===")
         
         elapsed = time.time() - self._voice_start_time
         
-        # Фаза 0: Поворот вперед (0-1.9 сек)
-        if self._movement_phase == 0:
-            if elapsed < 0.1:
-                # Отправляем команду поворота один раз
-                if not hasattr(self, '_turn_command_sent'):
-                    self.serial.send_motor_command(140, 140, 0, 1)
-                    self._turn_command_sent = True
-                    self.logger.info("Имитация: поворот к клиенту")
-                return
-            elif elapsed >= 1.9:
-                # Переход к следующей фазе
-                self._movement_phase = 1
-                if hasattr(self, '_turn_command_sent'):
-                    delattr(self, '_turn_command_sent')
-                self.logger.info("Имитация: поворот завершен")
-                return
-            else:
-                return
-        
-        # Фаза 1: Движение вперед (1.9-3.9 сек)
-        if self._movement_phase == 1:
-            if elapsed < 2.0:
-                # Отправляем команду движения вперед один раз
-                if not hasattr(self, '_forward_command_sent'):
-                    self.serial.send_motor_command(140, 140, 1, 0)
-                    self._forward_command_sent = True
-                    self.logger.info("Имитация: движение к клиенту")
-                return
-            elif elapsed >= 3.9:
-                # Переход к следующей фазе
-                self._movement_phase = 2
-                if hasattr(self, '_forward_command_sent'):
-                    delattr(self, '_forward_command_sent')
-                self.logger.info("Имитация: движение завершено")
-                return
-            else:
-                return
-        
-        # Фаза 2: Остановка (3.9 сек)
-        if self._movement_phase == 2:
-            if not hasattr(self, '_stop_command_sent'):
-                self.serial.send_motor_command(0, 0, 1, 0)
-                self._stop_command_sent = True
-                self.logger.info("Имитация: остановка у клиента")
-            self._movement_phase = 3
-            if hasattr(self, '_stop_command_sent'):
-                delattr(self, '_stop_command_sent')
-            self.logger.info("=== Прибытие к клиенту, начало голосовой верификации ===")
-            return
-        
-        # Фаза 3: Голосовая верификация
-        if self._movement_phase < 3:
-            return
-        
-        elapsed = time.time() - self._voice_start_time
-        
-        # Запрос кода через 7 секунд (3.9 сек движение + ~3 сек ожидание)
-        if elapsed >= 7.0 and not self._code_requested:
+        # Запрос кода через 2 секунды
+        if elapsed >= 2.0 and not self._code_requested:
             self._code_requested = True
             self._request_time = time.time()
             
