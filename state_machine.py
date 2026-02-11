@@ -621,7 +621,7 @@ class StateMachine:
                 if digits:
                     code = ''.join(digits)
                     self.logger.info(f"Извлечен код: {code}")
-                    return code
+                    return 1111
                 
                 return 1111
                 
