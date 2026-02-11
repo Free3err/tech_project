@@ -429,8 +429,9 @@ class StateMachine:
             self._verifying_started = True
             self._verification_callback_received = False
             
-            # Воспроизведение запроса QR кода
-            self.audio.request_qr_code()
+            # Воспроизведение запроса QR кода только если не было недавнего отклонения
+            if not hasattr(self, '_rejection_delay_start'):
+                self.audio.request_qr_code()
             
             # Запуск сканирования QR кода с callback
             self.order_verifier.start_scanning(self._on_qr_scan_result)
@@ -478,21 +479,21 @@ class StateMachine:
         else:
             self.logger.warning(f"Заказ не прошел проверку: order_id={order_id}")
             
-            # Воспроизведение звука неудачи
-            self.audio.announce_order_rejected()
-            
             # Остановка сканирования (безопасно из основного потока)
             self.order_verifier.stop_scanning()
             
-            # Установка времени задержки перед повторным сканированием
+            # Воспроизведение звука неудачи
+            self.audio.announce_order_rejected()
+            
+            # Установка времени задержки перед повторным сканированием (5 секунд чтобы аудио успело проиграться)
             self._rejection_delay_start = time.time()
-            self._rejection_delay_duration = 3.0  # 3 секунды задержки
+            self._rejection_delay_duration = 5.0  # 5 секунд задержки
             
             # Сброс флагов для повторного сканирования после задержки
             delattr(self, '_verifying_started')
             self._verification_callback_received = False
             
-            self.logger.info("Ожидание 3 секунды перед повторным сканированием QR кода")
+            self.logger.info("Ожидание 5 секунд перед повторным сканированием QR кода")
     
     def update_navigating_to_warehouse_state(self) -> None:
         """
