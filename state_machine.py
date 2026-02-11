@@ -548,7 +548,7 @@ class StateMachine:
                     self._turn_command_sent = True
                     self.logger.info("Имитация: поворот назад к складу")
                 return
-            elif elapsed >= 0.5:
+            elif elapsed >= 1.2:
                 # Переход к следующей фазе
                 self._movement_phase = 1
                 delattr(self, '_turn_command_sent')
@@ -569,6 +569,7 @@ class StateMachine:
             elif elapsed >= 3.1:
                 # Переход к следующей фазе
                 self._movement_phase = 2
+                self.serial.send_motor_command(0, 0, 1, 1)
                 delattr(self, '_backward_command_sent')
                 self.logger.info("Имитация: движение завершено")
                 return
@@ -653,7 +654,7 @@ class StateMachine:
                     self._turn_command_sent = True
                     self.logger.info("Имитация: поворот назад")
                 return
-            elif elapsed >= 0.5:
+            elif elapsed >= 1.2:
                 # Переход к следующей фазе
                 self._movement_phase = 1
                 delattr(self, '_turn_command_sent')
