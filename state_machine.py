@@ -357,7 +357,7 @@ class StateMachine:
         
         # Отправка команды движения (dir=1 для движения вперед)
         try:
-            self.serial.send_motor_command(base_speed, base_speed, 1, 1)
+            pass
         except Exception as e:
             self.logger.error(f"Ошибка отправки команды движения: {e}")
             self.navigation.stop()
