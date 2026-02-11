@@ -389,10 +389,19 @@ class StateMachine:
                 # Еще ждем
                 return
             else:
-                # Задержка прошла, убираем флаги
+                # Задержка прошла, убираем флаги и перезапускаем сканирование
                 delattr(self, '_rejection_delay_start')
                 delattr(self, '_rejection_delay_duration')
-                self.logger.info("Задержка завершена, готов к повторному сканированию")
+                
+                # Сбрасываем флаги для перезапуска
+                if hasattr(self, '_verifying_started'):
+                    delattr(self, '_verifying_started')
+                self._verification_callback_received = False
+                
+                if hasattr(self, '_need_restart_scanning'):
+                    delattr(self, '_need_restart_scanning')
+                
+                self.logger.info("Задержка завершена, перезапуск сканирования")
         
         # Проверка задержки перед переходом к LOADING
         if hasattr(self, '_loading_delay_start'):
@@ -490,8 +499,9 @@ class StateMachine:
             self._rejection_delay_duration = 5.0  # 5 секунд задержки
             
             # Сброс флагов для повторного сканирования после задержки
-            delattr(self, '_verifying_started')
+            # НЕ удаляем _verifying_started здесь - удалим после задержки
             self._verification_callback_received = False
+            self._need_restart_scanning = True  # Флаг что нужно перезапустить сканирование
             
             self.logger.info("Ожидание 5 секунд перед повторным сканированием QR кода")
     
