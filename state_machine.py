@@ -595,7 +595,7 @@ class StateMachine:
         elapsed = time.time() - self._voice_start_time
         
         # Запрос кода через 5 секунд
-        if elapsed >= 5.0 and not self._code_requested:
+        if elapsed >= 4.0 and not self._code_requested:
             self._code_requested = True
             self._request_time = time.time()
             
@@ -668,7 +668,7 @@ class StateMachine:
                 
                 self.logger.info("Слушаю...")
                 # Слушаем без таймаута, записываем до первой паузы (макс 10 сек)
-                audio = recognizer.listen(source, phrase_time_limit=7)
+                audio = recognizer.listen(source, phrase_time_limit=10)
                 
                 self.logger.info("Распознавание...")
                 # Распознавание через Google Speech Recognition
