@@ -498,15 +498,12 @@ class StateMachine:
         else:
             self.logger.warning(f"Заказ не прошел проверку: order_id={order_id}")
             
-            # Остановка сканирования (безопасно из основного потока)
-            self.order_verifier.stop_scanning()
-            
             # Воспроизведение звука неудачи
             self.audio.announce_order_rejected()
             
             # Установка времени задержки перед возвратом в WAITING (3 секунды чтобы аудио успело проиграться)
             self._rejection_delay_start = time.time()
-            self._rejection_delay_duration = 3.0  # 3 секунды задержки
+            self._rejection_delay_duration = 4.0  # 3 секунды задержки
             
             # Сброс флагов
             delattr(self, '_verifying_started')
@@ -520,6 +517,7 @@ class StateMachine:
         
         Пустое состояние - ничего не делает.
         """
+        se
         pass
     
     def update_loading_state(self) -> None:
