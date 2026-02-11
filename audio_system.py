@@ -232,6 +232,42 @@ class AudioSystem:
         """
         self.logger.info("Воспроизведение звука ошибки")
         self.play(config.AUDIO_ERROR, blocking=False)
+    
+    def announce_loading_complete(self) -> None:
+        """
+        Объявить окончание загрузки
+        
+        Воспроизводит: "Загрузка завершена"
+        """
+        self.logger.info("Объявление окончания загрузки")
+        self.play("loading_complete.wav", blocking=False)
+    
+    def request_voice_code(self) -> None:
+        """
+        Запросить голосовой код
+        
+        Воспроизводит: "Пожалуйста, продиктуйте код из приложения"
+        """
+        self.logger.info("Запрос голосового кода")
+        self.play("request_voice_code.wav", blocking=False)
+    
+    def announce_code_accepted(self) -> None:
+        """
+        Объявить принятие кода
+        
+        Воспроизводит: "Код принят"
+        """
+        self.logger.info("Объявление принятия кода")
+        self.play("code_accepted.wav", blocking=False)
+    
+    def announce_code_rejected(self) -> None:
+        """
+        Объявить отклонение кода
+        
+        Воспроизводит: "Код неверный, попробуйте еще раз"
+        """
+        self.logger.info("Объявление отклонения кода")
+        self.play("code_rejected.wav", blocking=False)
 
 
 # Пример использования
@@ -277,38 +313,3 @@ if __name__ == "__main__":
     
     print("\nТестирование завершено!")
 
-    def announce_loading_complete(self) -> None:
-        """
-        Объявить окончание загрузки
-        
-        Воспроизводит: "Загрузка завершена"
-        """
-        self.logger.info("Объявление окончания загрузки")
-        self.play("loading_complete.wav", blocking=False)
-    
-    def request_voice_code(self) -> None:
-        """
-        Запросить голосовой код
-        
-        Воспроизводит: "Пожалуйста, продиктуйте код из приложения"
-        """
-        self.logger.info("Запрос голосового кода")
-        self.play("request_voice_code.wav", blocking=False)
-    
-    def announce_code_accepted(self) -> None:
-        """
-        Объявить принятие кода
-        
-        Воспроизводит: "Код принят"
-        """
-        self.logger.info("Объявление принятия кода")
-        self.play("code_accepted.wav", blocking=False)
-    
-    def announce_code_rejected(self) -> None:
-        """
-        Объявить отклонение кода
-        
-        Воспроизводит: "Код неверный, попробуйте еще раз"
-        """
-        self.logger.info("Объявление отклонения кода")
-        self.play("code_rejected.wav", blocking=False)
