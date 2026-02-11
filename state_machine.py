@@ -395,30 +395,26 @@ class StateMachine:
                 self.logger.debug(f"Ожидание задержки: {elapsed:.1f}/{self._rejection_delay_duration}с")
                 return
             else:
-                # Задержка прошла, убираем флаги и перезапускаем сканирование
-                self.logger.info("=== Задержка завершена, сброс флагов ===")
+                # Задержка прошла, возврат в WAITING
+                self.logger.info("=== Задержка завершена, возврат в WAITING ===")
                 delattr(self, '_rejection_delay_start')
                 delattr(self, '_rejection_delay_duration')
                 
-                # Сбрасываем флаги для перезапуска
+                # Очистка флагов
                 if hasattr(self, '_verifying_started'):
                     delattr(self, '_verifying_started')
-                    self.logger.info("Удален флаг _verifying_started")
                 self._verification_callback_received = False
-                self.logger.info("Сброшен флаг _verification_callback_received")
                 
-                if hasattr(self, '_need_restart_scanning'):
-                    delattr(self, '_need_restart_scanning')
-                
-                self.logger.info("=== Перезапуск сканирования на следующей итерации ===")
+                self.transition_to(State.WAITING)
+                return
         
-        # Проверка задержки перед переходом к LOADING
-        if hasattr(self, '_loading_delay_start'):
-            elapsed = time.time() - self._loading_delay_start
+        # Проверка задержки перед переходом к поездке на склад
+        if hasattr(self, '_warehouse_delay_start'):
+            elapsed = time.time() - self._warehouse_delay_start
             if elapsed >= config.VERIFYING_TO_LOADING_DELAY:
-                delattr(self, '_loading_delay_start')
-                self.logger.info("Задержка завершена, переход к загрузке")
-                self.transition_to(State.LOADING)
+                delattr(self, '_warehouse_delay_start')
+                self.logger.info("Задержка завершена, переход к поездке на склад")
+                self.transition_to(State.NAVIGATING_TO_WAREHOUSE)
             return
         
         # Проверка наличия человека в зоне видимости
@@ -498,9 +494,9 @@ class StateMachine:
             delattr(self, '_verifying_started')
             self._verification_callback_received = False
             
-            # Установка времени для задержки перед LOADING
-            self._loading_delay_start = time.time()
-            self.logger.info(f"Ожидание {config.VERIFYING_TO_LOADING_DELAY}с перед загрузкой")
+            # Установка времени для задержки перед поездкой на склад
+            self._warehouse_delay_start = time.time()
+            self.logger.info(f"Ожидание {config.VERIFYING_TO_LOADING_DELAY}с перед поездкой на склад")
         else:
             self.logger.warning(f"Заказ не прошел проверку: order_id={order_id}")
             
@@ -510,25 +506,75 @@ class StateMachine:
             # Воспроизведение звука неудачи
             self.audio.announce_order_rejected()
             
-            # Установка времени задержки перед повторным сканированием (5 секунд чтобы аудио успело проиграться)
+            # Установка времени задержки перед возвратом в WAITING (3 секунды чтобы аудио успело проиграться)
             self._rejection_delay_start = time.time()
-            self._rejection_delay_duration = 5.0  # 5 секунд задержки
+            self._rejection_delay_duration = 3.0  # 3 секунды задержки
             
-            # Сброс флагов для повторного сканирования после задержки
-            # НЕ удаляем _verifying_started здесь - удалим после задержки
+            # Сброс флагов
+            delattr(self, '_verifying_started')
             self._verification_callback_received = False
-            self._need_restart_scanning = True  # Флаг что нужно перезапустить сканирование
             
-            self.logger.info("Ожидание 5 секунд перед повторным сканированием QR кода")
+            self.logger.info("Ожидание 3 секунды перед возвратом в WAITING")
     
     def update_navigating_to_warehouse_state(self) -> None:
         """
         Обновление состояния NAVIGATING_TO_WAREHOUSE
         
-        Пустое состояние - ничего не делает.
+        Движение на склад:
+        1. 2 секунды назад (скорость 140)
+        2. Поворот направо 90°
+        3. 1.5 секунды вперед
+        4. Переход к LOADING
         """
-
-        pass
+        if not hasattr(self, '_warehouse_nav_started'):
+            self._warehouse_nav_started = True
+            self._warehouse_nav_step = 1
+            self._warehouse_nav_step_start = time.time()
+            self.logger.info("=== Начало движения на склад ===")
+        
+        elapsed = time.time() - self._warehouse_nav_step_start
+        
+        if self._warehouse_nav_step == 1:
+            # Шаг 1: Движение назад 2 секунды
+            if elapsed < 2.0:
+                # dir=0 для движения назад
+                self.serial.send_motor_command(140, 140, 0, 0)
+            else:
+                # Остановка
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self.logger.info("Шаг 1 завершен: движение назад")
+                self._warehouse_nav_step = 2
+                self._warehouse_nav_step_start = time.time()
+        
+        elif self._warehouse_nav_step == 2:
+            # Шаг 2: Поворот направо 90° (примерно 1 секунда)
+            if elapsed < 1.0:
+                # Поворот направо: левое колесо вперед, правое назад
+                self.serial.send_motor_command(140, 140, 1, 0)
+            else:
+                # Остановка
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self.logger.info("Шаг 2 завершен: поворот направо 90°")
+                self._warehouse_nav_step = 3
+                self._warehouse_nav_step_start = time.time()
+        
+        elif self._warehouse_nav_step == 3:
+            # Шаг 3: Движение вперед 1.5 секунды
+            if elapsed < 1.5:
+                # dir=1 для движения вперед
+                self.serial.send_motor_command(140, 140, 1, 1)
+            else:
+                # Остановка
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self.logger.info("Шаг 3 завершен: движение вперед")
+                
+                # Очистка флагов
+                delattr(self, '_warehouse_nav_started')
+                delattr(self, '_warehouse_nav_step')
+                delattr(self, '_warehouse_nav_step_start')
+                
+                self.logger.info("=== Прибытие на склад, переход к LOADING ===")
+                self.transition_to(State.LOADING)
     
     def update_loading_state(self) -> None:
         """
@@ -561,16 +607,81 @@ class StateMachine:
             delattr(self, '_loading_started')
             delattr(self, '_loading_step_start')
             
-            self.logger.info("Загрузка завершена, переход к голосовой верификации")
-            self.transition_to(State.VOICE_VERIFICATION)
+            self.logger.info("Загрузка завершена, переход к возврату к клиенту")
+            self.transition_to(State.RETURNING_TO_CUSTOMER)
     
     def update_returning_to_customer_state(self) -> None:
         """
         Обновление состояния RETURNING_TO_CUSTOMER
         
-        Пустое состояние - ничего не делает.
+        Возврат от склада к клиенту:
+        1. Поворот налево 180°
+        2. 1.5 секунды вперед
+        3. Поворот направо 90°
+        4. 2 секунды вперед
+        5. Переход к VOICE_VERIFICATION
         """
-        pass
+        if not hasattr(self, '_return_nav_started'):
+            self._return_nav_started = True
+            self._return_nav_step = 1
+            self._return_nav_step_start = time.time()
+            self.logger.info("=== Начало возврата к клиенту ===")
+        
+        elapsed = time.time() - self._return_nav_step_start
+        
+        if self._return_nav_step == 1:
+            # Шаг 1: Поворот налево 180° (примерно 2 секунды)
+            if elapsed < 2.0:
+                # Поворот налево: правое колесо вперед, левое назад
+                self.serial.send_motor_command(140, 140, 0, 1)
+            else:
+                # Остановка
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self.logger.info("Шаг 1 завершен: поворот налево 180°")
+                self._return_nav_step = 2
+                self._return_nav_step_start = time.time()
+        
+        elif self._return_nav_step == 2:
+            # Шаг 2: Движение вперед 1.5 секунды
+            if elapsed < 1.5:
+                # dir=1 для движения вперед
+                self.serial.send_motor_command(140, 140, 1, 1)
+            else:
+                # Остановка
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self.logger.info("Шаг 2 завершен: движение вперед")
+                self._return_nav_step = 3
+                self._return_nav_step_start = time.time()
+        
+        elif self._return_nav_step == 3:
+            # Шаг 3: Поворот направо 90° (примерно 1 секунда)
+            if elapsed < 1.0:
+                # Поворот направо: левое колесо вперед, правое назад
+                self.serial.send_motor_command(140, 140, 1, 0)
+            else:
+                # Остановка
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self.logger.info("Шаг 3 завершен: поворот направо 90°")
+                self._return_nav_step = 4
+                self._return_nav_step_start = time.time()
+        
+        elif self._return_nav_step == 4:
+            # Шаг 4: Движение вперед 2 секунды
+            if elapsed < 2.0:
+                # dir=1 для движения вперед
+                self.serial.send_motor_command(140, 140, 1, 1)
+            else:
+                # Остановка
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self.logger.info("Шаг 4 завершен: движение вперед")
+                
+                # Очистка флагов
+                delattr(self, '_return_nav_started')
+                delattr(self, '_return_nav_step')
+                delattr(self, '_return_nav_step_start')
+                
+                self.logger.info("=== Возврат к клиенту завершен, переход к VOICE_VERIFICATION ===")
+                self.transition_to(State.VOICE_VERIFICATION)
     
     def update_voice_verification_state(self) -> None:
         """
