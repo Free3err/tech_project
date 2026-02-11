@@ -573,9 +573,6 @@ class StateMachine:
                     self.logger.info("Голосовой код верный")
                     self.audio.announce_code_accepted()
                     
-                    # Ждем 2 секунды чтобы аудио успело воспроизвестись
-                    time.sleep(2.0)
-                    
                     # Очистка флагов
                     delattr(self, '_voice_verification_started')
                     delattr(self, '_voice_start_time')
