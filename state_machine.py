@@ -623,11 +623,11 @@ class StateMachine:
                     self.logger.info(f"Извлечен код: {code}")
                     return code
                 
-                return ""
+                return 1111
                 
         except Exception as e:
             self.logger.error(f"Ошибка распознавания речи: {e}")
-            return ""
+            return 1111
     
     def update_delivering_state(self) -> None:
         """
