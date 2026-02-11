@@ -620,59 +620,15 @@ class StateMachine:
                     delattr(self, '_loading_last_log')
                 self.logger.info("=== Загрузка завершена, начало возврата к клиенту ===")
             return
-        
-        # Фаза 4: Поворот к клиенту (0-1.9 сек)
-        if self._movement_phase == 4:
-            elapsed = time.time() - self._loading_step_start
-            if elapsed < 0.1:
-                if not hasattr(self, '_return_turn_sent'):
-                    self.serial.send_motor_command(140, 140, 0, 1)
-                    self._return_turn_sent = True
-                    self.logger.info("Имитация: поворот к клиенту")
-                return
-            elif elapsed >= 1.9:
-                self._movement_phase = 5
-                if hasattr(self, '_return_turn_sent'):
-                    delattr(self, '_return_turn_sent')
-                self.logger.info("Имитация: поворот к клиенту завершен")
-                return
-            else:
-                return
-        
-        # Фаза 5: Движение к клиенту (1.9-3.9 сек)
-        if self._movement_phase == 5:
-            elapsed = time.time() - self._loading_step_start
-            if elapsed < 2.0:
-                if not hasattr(self, '_return_forward_sent'):
-                    self.serial.send_motor_command(140, 140, 1, 0)
-                    self._return_forward_sent = True
-                    self.logger.info("Имитация: движение к клиенту")
-                return
-            elif elapsed >= 3.9:
-                self._movement_phase = 6
-                if hasattr(self, '_return_forward_sent'):
-                    delattr(self, '_return_forward_sent')
-                self.logger.info("Имитация: движение к клиенту завершено")
-                return
-            else:
-                return
-        
-        # Фаза 6: Остановка у клиента
-        if self._movement_phase == 6:
-            if not hasattr(self, '_return_stop_sent'):
-                self.serial.send_motor_command(0, 0, 1, 0)
-                self._return_stop_sent = True
-                self.logger.info("Имитация: остановка у клиента")
-            
-            # Очистка флагов
-            delattr(self, '_loading_started')
-            delattr(self, '_loading_step_start')
-            delattr(self, '_movement_phase')
-            if hasattr(self, '_return_stop_sent'):
+
+        delattr(self, '_loading_started')
+        delattr(self, '_loading_step_start')
+        delattr(self, '_movement_phase')
+        if hasattr(self, '_return_stop_sent'):
                 delattr(self, '_return_stop_sent')
             
-            self.logger.info("Возврат к клиенту завершен, переход к голосовой верификации")
-            self.transition_to(State.VOICE_VERIFICATION)
+        self.logger.info("Возврат к клиенту завершен, переход к голосовой верификации")
+        self.transition_to(State.VOICE_VERIFICATION)
     
     def update_returning_to_customer_state(self) -> None:
         """
