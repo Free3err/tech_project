@@ -575,7 +575,7 @@ class StateMachine:
                 # Распознавание речи
                 recognized_code = self._recognize_voice_code()
                 
-                if recognized_code == "742":
+                if recognized_code == "2245":
                     # Код правильный
                     self.logger.info("Голосовой код верный")
                     self.audio.announce_code_accepted()
@@ -620,29 +620,9 @@ class StateMachine:
                 self.logger.info("Настройка микрофона...")
                 recognizer.adjust_for_ambient_noise(source, duration=0.5)
                 
-                self.logger.info("Слушаю 10 секунд...")
-                # Записываем аудио в течение 10 секунд
-                import time
-                start_time = time.time()
-                audio_data = []
-                
-                # Слушаем пока не пройдет 10 секунд
-                while time.time() - start_time < 10.0:
-                    try:
-                        # Слушаем короткими кусками
-                        chunk = recognizer.listen(source, timeout=1, phrase_time_limit=2)
-                        audio_data.append(chunk)
-                    except sr.WaitTimeoutError:
-                        # Таймаут - продолжаем слушать
-                        continue
-                
-                # Если ничего не записали
-                if not audio_data:
-                    self.logger.warning("Ничего не записано за 10 секунд")
-                    return ""
-                
-                # Берем первый записанный кусок для распознавания
-                audio = audio_data[0]
+                self.logger.info("Слушаю...")
+                # Слушаем без таймаута, записываем до первой паузы (макс 10 сек)
+                audio = recognizer.listen(source, phrase_time_limit=10)
                 
                 self.logger.info("Распознавание...")
                 # Распознавание через Google Speech Recognition
