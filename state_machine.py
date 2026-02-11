@@ -625,14 +625,13 @@ class StateMachine:
                     self.serial.send_motor_command(140, 140, 0, 0)
                     self._return_move_sent = True
                     self.logger.info("Возврат: движение от склада")
-                return
             elif elapsed >= 2.0: # То же время, что и в фазе 1
                 self._movement_phase = 5
                 self._loading_step_start = time.time()
                 if hasattr(self, '_return_move_sent'):
                     delattr(self, '_return_move_sent')
                 self.logger.info("Возврат: движение завершено")
-                return
+            return
 
         # Фаза 5: Разворот обратно (инверсия Фазы 0)
         elif self._movement_phase == 5:
@@ -642,7 +641,6 @@ class StateMachine:
                     self.serial.send_motor_command(140, 140, 1, 0)
                     self._return_turn_sent = True
                     self.logger.info("Возврат: разворот к клиенту")
-                return
             elif elapsed >= 1.9: # То же время, что и в фазе 0
                 self._movement_phase = 6
                 self._loading_step_start = time.time()
@@ -652,7 +650,7 @@ class StateMachine:
                 # Останавливаемся
                 self.serial.send_motor_command(0, 0, 1, 1)
                 self.logger.info("Возврат: разворот завершен, остановка")
-                return
+            return
 
         # Фаза 6: Завершение и переход
         elif self._movement_phase == 6:
