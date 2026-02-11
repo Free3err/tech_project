@@ -649,78 +649,42 @@ class StateMachine:
             
             elapsed = time.time() - self._voice_start_time
             
-            # 1. Запрос кода (через 2 секунды)
+            # Запрос кода через 2 секунды
             if elapsed >= 2.0 and not self._code_requested:
                 self._code_requested = True
                 self._request_time = time.time()
                 self.audio.request_voice_code()
                 self.logger.info("Запрос голосового кода")
             
-            # 2. Ожидание окончания фразы робота и запуск потока распознавания
+            # Начинаем слушать через 2 секунды после запроса
             if self._code_requested:
                 request_elapsed = time.time() - self._request_time
                 
-                # Начинаем слушать через 2 секунды после запроса
-                if request_elapsed >= 2.0 and not self._recognition_launched:
-                    self._recognition_launched = True
-                    self.logger.info("Запуск потока распознавания речи...")
+                if request_elapsed >= 2.0:
+                    # Распознавание речи (блокирует главный цикл!)
+                    recognized_code = self._recognize_voice_code()
                     
-                    # Запускаем распознавание в отдельном потоке!
-                    self._recognition_thread = threading.Thread(
-                        target=self._run_recognition_thread_wrapper,
-                        daemon=True
-                    )
-                    self._recognition_thread.start()
-            
-            # 3. Проверка результата (в каждом цикле update)
-            if hasattr(self, '_recognition_result_data'):
-                # Результат получен из потока
-                recognized_code = self._recognition_result_data
-                
-                # Удаляем данные, чтобы не обработать их дважды
-                delattr(self, '_recognition_result_data')
-                
-                if recognized_code == "2245":
-                    # --- УСПЕХ ---
-                    self.logger.info(f"Голосовой код верный: {recognized_code}")
-                    self.audio.announce_code_accepted()
-                    
-                    # Очистка флагов
-                    self._cleanup_voice_flags()
-                    
-                    self.logger.info("Переход к выдаче заказа")
-                    self.transition_to(State.DELIVERING)
-                else:
-                    # --- ОШИБКА ---
-                    self.logger.warning(f"Голосовой код неверный или не распознан: '{recognized_code}'")
-                    self.audio.announce_code_rejected()
-                    
-                    # Полный сброс для повторной попытки
-                    self._cleanup_voice_flags()
-                    
-                    # Удаляем главный флаг старта, чтобы логика началась сначала (запрос кода -> слушание)
-                    delattr(self, '_voice_verification_started')
-                    
-    def _cleanup_voice_flags(self):
-            """Вспомогательный метод очистки флагов голоса"""
-            if hasattr(self, '_voice_verification_started'): delattr(self, '_voice_verification_started')
-            if hasattr(self, '_voice_start_time'): delattr(self, '_voice_start_time')
-            if hasattr(self, '_code_requested'): delattr(self, '_code_requested')
-            if hasattr(self, '_request_time'): delattr(self, '_request_time')
-            if hasattr(self, '_recognition_launched'): delattr(self, '_recognition_launched')
-            if hasattr(self, '_recognition_thread'): delattr(self, '_recognition_thread')
-
-    def _run_recognition_thread_wrapper(self):
-        """
-        Обертка для запуска распознавания в потоке.
-        Результат сохраняется в self._recognition_result_data
-        """
-        try:
-            code = self._recognize_voice_code() # Этот метод блокирует, но теперь он в потоке
-            self._recognition_result_data = code
-        except Exception as e:
-            self.logger.error(f"Ошибка в потоке распознавания: {e}")
-            self._recognition_result_data = ""
+                    if recognized_code == "2245":
+                        self.logger.info(f"Голосовой код верный: {recognized_code}")
+                        self.audio.announce_code_accepted()
+                        
+                        # Очистка флагов
+                        delattr(self, '_voice_verification_started')
+                        delattr(self, '_voice_start_time')
+                        delattr(self, '_code_requested')
+                        delattr(self, '_request_time')
+                        
+                        self.logger.info("Переход к выдаче заказа")
+                        self.transition_to(State.DELIVERING)
+                    else:
+                        self.logger.warning(f"Голосовой код неверный: '{recognized_code}'")
+                        self.audio.announce_code_rejected()
+                        
+                        # Сброс для повторной попытки
+                        delattr(self, '_voice_verification_started')
+                        delattr(self, '_voice_start_time')
+                        delattr(self, '_code_requested')
+                        delattr(self, '_request_time')
     
     def _recognize_voice_code(self) -> str:
         """
