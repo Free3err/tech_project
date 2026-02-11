@@ -395,16 +395,18 @@ class StateMachine:
                 self.logger.debug(f"Ожидание задержки: {elapsed:.1f}/{self._rejection_delay_duration}с")
                 return
             else:
-                # Задержка прошла, перезапуск сканирования
-                self.logger.info("=== Задержка завершена, перезапуск сканирования ===")
+                # Задержка прошла, возврат в WAITING
+                self.logger.info("=== Задержка завершена, возврат в WAITING ===")
                 delattr(self, '_rejection_delay_start')
                 delattr(self, '_rejection_delay_duration')
                 
-                # Очистка флагов для перезапуска
+                # Очистка флагов
                 if hasattr(self, '_verifying_started'):
                     delattr(self, '_verifying_started')
                 self._verification_callback_received = False
-                # НЕ возвращаемся в WAITING, продолжаем выполнение для перезапуска сканирования
+                
+                self.transition_to(State.WAITING)
+                return
         
         # Проверка задержки перед переходом к LOADING
         if hasattr(self, '_loading_delay_start'):
