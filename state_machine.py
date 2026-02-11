@@ -357,7 +357,7 @@ class StateMachine:
         
         # Отправка команды движения (dir=1 для движения вперед)
         try:
-            pass
+            self.serial.send_motor_command(base_speed, base_speed, 1, 1)
         except Exception as e:
             self.logger.error(f"Ошибка отправки команды движения: {e}")
             self.navigation.stop()
@@ -750,12 +750,6 @@ class StateMachine:
         except Exception as e:
             self.logger.error(f"Ошибка остановки навигации в EMERGENCY_STOP: {e}")
         
-        try:
-            if self.box_controller.is_open():
-                self.box_controller.emergency_close()
-        except Exception as e:
-            self.logger.error(f"Ошибка закрытия коробки в EMERGENCY_STOP: {e}")
-        
         # Логирование каждые 10 секунд
         if not hasattr(self, '_last_emergency_log_time'):
             self._last_emergency_log_time = time.time()
@@ -781,12 +775,6 @@ class StateMachine:
             self.navigation.stop()
         except Exception as e:
             self.logger.error(f"Ошибка остановки навигации: {e}")
-        
-        try:
-            if self.box_controller.is_open():
-                self.box_controller.emergency_close()
-        except Exception as e:
-            self.logger.error(f"Ошибка экстренного закрытия коробки: {e}")
         
         # Переход в состояние EMERGENCY_STOP
         self.transition_to(State.EMERGENCY_STOP)
