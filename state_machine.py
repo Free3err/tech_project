@@ -644,16 +644,66 @@ class StateMachine:
             
             Возврат к клиенту + голосовая верификация
             """
-
-            import threading
-
             if not hasattr(self, '_voice_verification_started'):
                 self._voice_verification_started = True
-                self._voice_start_time = time.time()
+                self._loading_step_start = time.time()
+                self._movement_phase = 0
                 self._code_requested = False
-                self._recognition_launched = False # Флаг запуска потока
                 
-                self.logger.info("=== VOICE_VERIFICATION: Начало голосовой верификации ===")
+                self.logger.info("=== VOICE_VERIFICATION: Начало возврата к клиенту ===")
+            
+            elapsed = time.time() - self._loading_step_start
+
+            # --- ВОЗВРАТ К КЛИЕНТУ ---
+            
+            # Фаза 0: Поворот к клиенту (0-1.9 сек)
+            if self._movement_phase == 0:
+                if elapsed < 0.1:
+                    if not hasattr(self, '_turn_command_sent'):
+                        self.serial.send_motor_command(140, 140, 0, 1)
+                        self._turn_command_sent = True
+                        self.logger.info("Возврат: поворот к клиенту")
+                elif elapsed >= 1.9:
+                    self._movement_phase = 1
+                    self._loading_step_start = time.time()
+                    if hasattr(self, '_turn_command_sent'):
+                        delattr(self, '_turn_command_sent')
+                    self.logger.info("Возврат: поворот завершен")
+                return
+
+            # Фаза 1: Движение к клиенту (0-2.0 сек)
+            elif self._movement_phase == 1:
+                if elapsed < 0.1:
+                    if not hasattr(self, '_forward_command_sent'):
+                        self.serial.send_motor_command(140, 140, 1, 0)
+                        self._forward_command_sent = True
+                        self.logger.info("Возврат: движение к клиенту")
+                elif elapsed >= 2.0:
+                    self._movement_phase = 2
+                    self._loading_step_start = time.time()
+                    if hasattr(self, '_forward_command_sent'):
+                        delattr(self, '_forward_command_sent')
+                    self.logger.info("Возврат: движение завершено")
+                return
+            
+            # Фаза 2: Остановка у клиента
+            elif self._movement_phase == 2:
+                if not hasattr(self, '_stop_command_sent'):
+                    self.serial.send_motor_command(0, 0, 1, 0)
+                    self._stop_command_sent = True
+                    self.logger.info("Возврат: остановка у клиента")
+                
+                # Переход к голосовой верификации
+                self._movement_phase = 3
+                self._voice_start_time = time.time()
+                if hasattr(self, '_stop_command_sent'):
+                    delattr(self, '_stop_command_sent')
+                self.logger.info("=== Возврат завершен, начало голосовой верификации ===")
+                return
+            
+            # Фаза 3: Голосовая верификация
+            if self._movement_phase < 3:
+                return
             
             elapsed = time.time() - self._voice_start_time
             
