@@ -615,53 +615,6 @@ class StateMachine:
                 self.logger.info("=== Загрузка завершена, ВОЗВРАТ к клиенту ===")
             return
 
-        # --- ВОЗВРАТ К КЛИЕНТУ ---
-
-        # Фаза 4: Движение обратно (инверсия Фазы 1)
-        elif self._movement_phase == 4:
-            if elapsed < 0.1:
-                if not hasattr(self, '_return_move_sent'):
-                    # Инвертируем направление: было (1,1), стало (0,0) - движение назад
-                    self.serial.send_motor_command(140, 140, 0, 0)
-                    self._return_move_sent = True
-                    self.logger.info("Возврат: движение от склада")
-            elif elapsed >= 2.0: # То же время, что и в фазе 1
-                self._movement_phase = 5
-                self._loading_step_start = time.time()
-                if hasattr(self, '_return_move_sent'):
-                    delattr(self, '_return_move_sent')
-                self.logger.info("Возврат: движение завершено")
-            return
-
-        # Фаза 5: Разворот обратно (инверсия Фазы 0)
-        elif self._movement_phase == 5:
-            if elapsed < 0.1:
-                if not hasattr(self, '_return_turn_sent'):
-                    # Инвертируем поворот: было (0,1), стало (1,0)
-                    self.serial.send_motor_command(140, 140, 1, 0)
-                    self._return_turn_sent = True
-                    self.logger.info("Возврат: разворот к клиенту")
-            elif elapsed >= 1.9: # То же время, что и в фазе 0
-                self._movement_phase = 6
-                self._loading_step_start = time.time()
-                if hasattr(self, '_return_turn_sent'):
-                    delattr(self, '_return_turn_sent')
-                
-                # Останавливаемся
-                self.serial.send_motor_command(0, 0, 1, 1)
-                self.logger.info("Возврат: разворот завершен, остановка")
-            return
-
-        # Фаза 6: Завершение и переход
-        elif self._movement_phase == 6:
-            # Очистка всех флагов
-            if hasattr(self, '_loading_started'): delattr(self, '_loading_started')
-            if hasattr(self, '_loading_step_start'): delattr(self, '_loading_step_start')
-            if hasattr(self, '_movement_phase'): delattr(self, '_movement_phase')
-            
-            self.logger.info("Цикл загрузки и возврата завершен. Переход к VOICE_VERIFICATION")
-            self.transition_to(State.VOICE_VERIFICATION)
-
     
     def update_returning_to_customer_state(self) -> None:
         """
@@ -678,6 +631,66 @@ class StateMachine:
             Исправлено: Распознавание теперь работает в отдельном потоке, 
             чтобы не блокировать основной цикл (update) во время прослушивания.
             """
+            self._loading_step_start = time.time()
+            self._movement_phase = 0
+            self.logger.info("=== LOADING: Начало имитации движения к пользователю ===")
+            
+            elapsed = time.time() - self._loading_step_start
+
+            # --- ДВИЖЕНИЕ НА СКЛАД ---
+            
+            # Фаза 0: Поворот назад (0-1.9 сек)
+            if self._movement_phase == 0:
+                if elapsed < 0.1:
+                    if not hasattr(self, '_turn_command_sent'):
+                        # Поворот (левый мотор назад, правый вперед) или наоборот, как настроено
+                        self.serial.send_motor_command(140, 140, 0, 1)
+                        self._turn_command_sent = True
+                        self.logger.info("Имитация: поворот назад к складу")
+                    return
+                elif elapsed >= 1.9:
+                    self._movement_phase = 1
+                    self._loading_step_start = time.time() # Сброс таймера
+                    if hasattr(self, '_turn_command_sent'):
+                        delattr(self, '_turn_command_sent')
+                    self.logger.info("Имитация: поворот завершен")
+                    return
+
+            # Фаза 1: Движение назад (или вперед вглубь склада)
+            elif self._movement_phase == 1:
+                if elapsed < 0.1:
+                    if not hasattr(self, '_backward_command_sent'):
+                        # Движение (1, 1 - это вперед в текущей ориентации)
+                        self.serial.send_motor_command(140, 140, 1, 1)
+                        self._backward_command_sent = True
+                        self.logger.info("Имитация: движение к складу")
+                    return
+                elif elapsed >= 2.0: # Длительность движения
+                    self._movement_phase = 2
+                    self._loading_step_start = time.time()
+                    if hasattr(self, '_backward_command_sent'):
+                        delattr(self, '_backward_command_sent')
+                    self.logger.info("Имитация: движение завершено")
+                    return
+
+            # Фаза 2: Остановка на складе
+            elif self._movement_phase == 2:
+                if not hasattr(self, '_stop_command_sent'):
+                    self.serial.send_motor_command(0, 0, 1, 1)
+                    self._stop_command_sent = True
+                    self.logger.info("Имитация: остановка на складе")
+                
+                # Сразу переходим к ожиданию, но сначала озвучиваем номер
+                if self.context.current_order_id is not None:
+                    self.audio.announce_order_number(self.context.current_order_id)
+                
+                self._movement_phase = 3
+                self._loading_step_start = time.time()
+                if hasattr(self, '_stop_command_sent'):
+                    delattr(self, '_stop_command_sent')
+                self.logger.info(f"=== Прибытие, ожидание ({config.LOADING_CONFIRMATION_TIMEOUT}с) ===")
+                return
+
             import threading
 
             if not hasattr(self, '_voice_verification_started'):
