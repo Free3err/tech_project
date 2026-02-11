@@ -114,9 +114,7 @@ class StateMachine:
         self.logger.info(f"Переход состояния: {old_state.value} -> {new_state.value}")
         
         # Отправка соответствующей LED команды при переходе
-        self.logger.info(f">>> Отправка LED команды для состояния {new_state.value}")
         self._send_led_command_for_state(new_state)
-        self.logger.info(f">>> LED команда отправлена для состояния {new_state.value}")
     
     def _send_led_command_for_state(self, state: State) -> None:
         """
