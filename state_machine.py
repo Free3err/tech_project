@@ -506,7 +506,6 @@ class StateMachine:
             self._rejection_delay_duration = 4.0  # 3 секунды задержки
             
             # Сброс флагов
-            delattr(self, '_verifying_started')
             self._verification_callback_received = False
             
             self.logger.info("Ожидание 3 секунды перед возвратом в WAITING")
