@@ -621,7 +621,7 @@ class StateMachine:
                 
                 self.logger.info("Слушаю...")
                 # Ждем начала речи до 8 секунд, фраза до 5 секунд
-                audio = recognizer.listen(source, timeout=8л, phrase_time_limit=10)
+                audio = recognizer.listen(source, timeout=8, phrase_time_limit=10)
                 
                 self.logger.info("Распознавание...")
                 # Распознавание через Google Speech Recognition
