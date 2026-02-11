@@ -209,6 +209,7 @@ class StateMachine:
             State.NAVIGATING_TO_WAREHOUSE: config.STATE_TIMEOUT_NAVIGATING_TO_WAREHOUSE,
             State.LOADING: config.STATE_TIMEOUT_LOADING,
             State.RETURNING_TO_CUSTOMER: config.STATE_TIMEOUT_RETURNING_TO_CUSTOMER,
+            State.VOICE_VERIFICATION: config.STATE_TIMEOUT_VOICE_VERIFICATION,
             State.DELIVERING: config.STATE_TIMEOUT_DELIVERING,
             State.RESETTING: config.STATE_TIMEOUT_RESETTING,
             State.ERROR_RECOVERY: config.STATE_TIMEOUT_ERROR_RECOVERY,
@@ -261,6 +262,10 @@ class StateMachine:
             elif self.current_state == State.VOICE_VERIFICATION:
                 self.update_voice_verification_state()
             elif self.current_state == State.DELIVERING:
+                # Отладочный лог для проверки вызова
+                if not hasattr(self, '_delivering_debug_logged'):
+                    self._delivering_debug_logged = True
+                    self.logger.info(">>> DEBUG: Вызов update_delivering_state()")
                 self.update_delivering_state()
             elif self.current_state == State.RESETTING:
                 self.update_resetting_state()
@@ -701,6 +706,8 @@ class StateMachine:
             delattr(self, '_delivery_start_time')
             delattr(self, '_greeting_played')
             delattr(self, '_last_log_time')
+            if hasattr(self, '_delivering_debug_logged'):
+                delattr(self, '_delivering_debug_logged')
             
             self.logger.info("Доставка завершена, возврат в режим ожидания")
             self.transition_to(State.WAITING)
