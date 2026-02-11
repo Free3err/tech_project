@@ -569,10 +569,11 @@ class StateMachine:
         if self._listening:
             listen_elapsed = time.time() - self._listen_start_time
 
-            recognized_code = self._recognize_voice_code()
+
             
-            if listen_elapsed >= 10.0:
+            if listen_elapsed >= 4.0:
                 # Распознавание речи
+                recognized_code = self._recognize_voice_code()
                 
                 if recognized_code == "1234":
                     # Код правильный
