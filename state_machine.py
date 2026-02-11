@@ -526,6 +526,7 @@ class StateMachine:
         Обновление состояния VOICE_VERIFICATION
         
         Голосовая верификация кода перед выдачей:
+        - Ждет 5 секунд после окончания загрузки
         - Запрашивает код голосом
         - Слушает 10 секунд
         - Проверяет код (тестовый: "1111")
@@ -535,19 +536,29 @@ class StateMachine:
         if not hasattr(self, '_voice_verification_started'):
             self._voice_verification_started = True
             self._voice_start_time = time.time()
+            self._code_requested = False
             self._listening = False
+            
+            self.logger.info("Ожидание 5 секунд перед запросом кода")
+        
+        elapsed = time.time() - self._voice_start_time
+        
+        # Запрос кода через 5 секунд
+        if elapsed >= 5.0 and not self._code_requested:
+            self._code_requested = True
+            self._request_time = time.time()
             
             # Запрос кода
             self.audio.request_voice_code()
             self.logger.info("Запрос голосового кода")
         
-        elapsed = time.time() - self._voice_start_time
-        
-        # Начинаем слушать через 2 секунды (после озвучки запроса)
-        if elapsed >= 2.0 and not self._listening:
-            self._listening = True
-            self._listen_start_time = time.time()
-            self.logger.info("Начало прослушивания голосового кода (10 секунд)")
+        # Начинаем слушать через 2 секунды после запроса (после озвучки)
+        if self._code_requested and not self._listening:
+            request_elapsed = time.time() - self._request_time
+            if request_elapsed >= 2.0:
+                self._listening = True
+                self._listen_start_time = time.time()
+                self.logger.info("Начало прослушивания голосового кода (10 секунд)")
         
         # Слушаем 10 секунд
         if self._listening:
@@ -565,6 +576,8 @@ class StateMachine:
                     # Очистка флагов
                     delattr(self, '_voice_verification_started')
                     delattr(self, '_voice_start_time')
+                    delattr(self, '_code_requested')
+                    delattr(self, '_request_time')
                     delattr(self, '_listening')
                     delattr(self, '_listen_start_time')
                     
@@ -577,6 +590,8 @@ class StateMachine:
                     # Сброс для повторной попытки
                     delattr(self, '_voice_verification_started')
                     delattr(self, '_voice_start_time')
+                    delattr(self, '_code_requested')
+                    delattr(self, '_request_time')
                     delattr(self, '_listening')
                     delattr(self, '_listen_start_time')
     
