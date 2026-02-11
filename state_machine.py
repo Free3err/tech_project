@@ -408,13 +408,13 @@ class StateMachine:
                 self.transition_to(State.WAITING)
                 return
         
-        # Проверка задержки перед переходом к поездке на склад
-        if hasattr(self, '_warehouse_delay_start'):
-            elapsed = time.time() - self._warehouse_delay_start
+        # Проверка задержки перед переходом к LOADING
+        if hasattr(self, '_loading_delay_start'):
+            elapsed = time.time() - self._loading_delay_start
             if elapsed >= config.VERIFYING_TO_LOADING_DELAY:
-                delattr(self, '_warehouse_delay_start')
-                self.logger.info("Задержка завершена, переход к поездке на склад")
-                self.transition_to(State.NAVIGATING_TO_WAREHOUSE)
+                delattr(self, '_loading_delay_start')
+                self.logger.info("Задержка завершена, переход к загрузке")
+                self.transition_to(State.LOADING)
             return
         
         # Проверка наличия человека в зоне видимости
@@ -494,9 +494,9 @@ class StateMachine:
             delattr(self, '_verifying_started')
             self._verification_callback_received = False
             
-            # Установка времени для задержки перед поездкой на склад
-            self._warehouse_delay_start = time.time()
-            self.logger.info(f"Ожидание {config.VERIFYING_TO_LOADING_DELAY}с перед поездкой на склад")
+            # Установка времени для задержки перед LOADING
+            self._loading_delay_start = time.time()
+            self.logger.info(f"Ожидание {config.VERIFYING_TO_LOADING_DELAY}с перед загрузкой")
         else:
             self.logger.warning(f"Заказ не прошел проверку: order_id={order_id}")
             
@@ -555,8 +555,8 @@ class StateMachine:
             delattr(self, '_loading_started')
             delattr(self, '_loading_step_start')
             
-            self.logger.info("Загрузка завершена, переход к возврату к клиенту")
-            self.transition_to(State.RETURNING_TO_CUSTOMER)
+            self.logger.info("Загрузка завершена, переход к голосовой верификации")
+            self.transition_to(State.VOICE_VERIFICATION)
     
     def update_returning_to_customer_state(self) -> None:
         """
