@@ -568,10 +568,11 @@ class StateMachine:
         # Слушаем 10 секунд
         if self._listening:
             listen_elapsed = time.time() - self._listen_start_time
+
+            recognized_code = self._recognize_voice_code()
             
             if listen_elapsed >= 10.0:
                 # Распознавание речи
-                recognized_code = self._recognize_voice_code()
                 
                 if recognized_code == "1234":
                     # Код правильный
@@ -620,7 +621,7 @@ class StateMachine:
                 
                 self.logger.info("Слушаю...")
                 # Ждем начала речи до 8 секунд, фраза до 5 секунд
-                audio = recognizer.listen(source, timeout=8, phrase_time_limit=5)
+                audio = recognizer.listen(source, timeout=8л, phrase_time_limit=10)
                 
                 self.logger.info("Распознавание...")
                 # Распознавание через Google Speech Recognition
