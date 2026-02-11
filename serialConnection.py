@@ -119,7 +119,6 @@ def send_servo_command(angle: int) -> None:
     
     # Отправка команды
     ser.write(command.encode())
-    ser.flush()  # Принудительная отправка данных
 
 
 def send_led_command(command: str) -> None:
@@ -135,7 +134,10 @@ def send_led_command(command: str) -> None:
     """
     global ser
     
+    logger.debug(f">>> DEBUG: send_led_command вызван с command={command}")
+    
     if ser is None:
+        logger.warning(">>> DEBUG: ser is None, пропускаем отправку LED команды")
         raise RuntimeError("Serial connection not initialized. Call init_serial() first.")
     
     # Список поддерживаемых команд
@@ -149,10 +151,6 @@ def send_led_command(command: str) -> None:
     
     # Логирование LED команды
     logger.debug(f"Отправка LED команды: {command}")
-    
-    # Отправка команды
-    ser.write(cmd.encode())
-    ser.flush()  # Принудительная отправка данных
 
 
 def read_sensor_data(timeout: float = 0.5) -> Optional[Dict[str, Any]]:
