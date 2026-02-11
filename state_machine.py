@@ -507,7 +507,6 @@ class StateMachine:
             self._rejection_delay_start = time.time()
             self._rejection_delay_duration = 5.0
 
-            delattr(self, '_verifying_started')
             
             # Сброс флагов
             self._verification_callback_received = False
