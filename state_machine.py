@@ -548,7 +548,7 @@ class StateMachine:
                     self._turn_command_sent = True
                     self.logger.info("Имитация: поворот назад к складу")
                 return
-            elif elapsed >= 1.1:
+            elif elapsed >= 0.5:
                 # Переход к следующей фазе
                 self._movement_phase = 1
                 delattr(self, '_turn_command_sent')
@@ -653,7 +653,7 @@ class StateMachine:
                     self._turn_command_sent = True
                     self.logger.info("Имитация: поворот назад")
                 return
-            elif elapsed >= 1.1:
+            elif elapsed >= 0.5:
                 # Переход к следующей фазе
                 self._movement_phase = 1
                 delattr(self, '_turn_command_sent')
