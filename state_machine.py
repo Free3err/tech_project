@@ -629,10 +629,10 @@ class StateMachine:
         Обновление состояния VOICE_VERIFICATION
         
         Голосовая верификация кода перед выдачей:
-        - Ждет 5 секунд после окончания загрузки
+        - Имитация возвращения к клиенту (поворот вперед + движение вперед)
         - Запрашивает код голосом
-        - Слушает 10 секунд
-        - Проверяет код (тестовый: "1111")
+        - Слушает и распознает речь
+        - Проверяет код (тестовый: "2245")
         - Если правильно -> DELIVERING
         - Если неправильно -> повторный запрос
         """
@@ -641,57 +641,60 @@ class StateMachine:
             self._voice_start_time = time.time()
             self._code_requested = False
             self._listening = False
-            self._movement_phase = 0  # 0: поворот назад, 1: движение назад, 2: остановка, 3: готов к верификации
+            self._movement_phase = 0  # 0: поворот вперед, 1: движение вперед, 2: остановка, 3: готов к верификации
             
-            self.logger.info("=== VOICE_VERIFICATION: Начало имитации движения на склад ===")
+            self.logger.info("=== VOICE_VERIFICATION: Начало имитации возвращения к клиенту ===")
         
         elapsed = time.time() - self._voice_start_time
         
-        # Фаза 0: Поворот назад (0-1.1 сек)
+        # Фаза 0: Поворот вперед (0-1.9 сек)
         if self._movement_phase == 0:
             if elapsed < 0.1:
                 # Отправляем команду поворота один раз
                 if not hasattr(self, '_turn_command_sent'):
                     self.serial.send_motor_command(140, 140, 0, 1)
                     self._turn_command_sent = True
-                    self.logger.info("Имитация: поворот назад")
+                    self.logger.info("Имитация: поворот к клиенту")
                 return
-            elif elapsed >= 1.2:
+            elif elapsed >= 1.9:
                 # Переход к следующей фазе
                 self._movement_phase = 1
-                delattr(self, '_turn_command_sent')
+                if hasattr(self, '_turn_command_sent'):
+                    delattr(self, '_turn_command_sent')
                 self.logger.info("Имитация: поворот завершен")
                 return
             else:
                 return
         
-        # Фаза 1: Движение назад (1.1-3.1 сек)
+        # Фаза 1: Движение вперед (1.9-3.9 сек)
         if self._movement_phase == 1:
-            if elapsed < 1.2:
-                # Отправляем команду движения назад один раз
-                if not hasattr(self, '_backward_command_sent'):
-                    self.serial.send_motor_command(140, 140, 1, 1)
-                    self._backward_command_sent = True
-                    self.logger.info("Имитация: движение назад")
+            if elapsed < 2.0:
+                # Отправляем команду движения вперед один раз
+                if not hasattr(self, '_forward_command_sent'):
+                    self.serial.send_motor_command(140, 140, 1, 0)
+                    self._forward_command_sent = True
+                    self.logger.info("Имитация: движение к клиенту")
                 return
-            elif elapsed >= 3.1:
+            elif elapsed >= 3.9:
                 # Переход к следующей фазе
                 self._movement_phase = 2
-                delattr(self, '_backward_command_sent')
+                if hasattr(self, '_forward_command_sent'):
+                    delattr(self, '_forward_command_sent')
                 self.logger.info("Имитация: движение завершено")
                 return
             else:
                 return
         
-        # Фаза 2: Остановка (3.1 сек)
+        # Фаза 2: Остановка (3.9 сек)
         if self._movement_phase == 2:
             if not hasattr(self, '_stop_command_sent'):
-                self.serial.send_motor_command(0, 0, 1, 1)
+                self.serial.send_motor_command(0, 0, 1, 0)
                 self._stop_command_sent = True
-                self.logger.info("Имитация: остановка")
+                self.logger.info("Имитация: остановка у клиента")
             self._movement_phase = 3
-            delattr(self, '_stop_command_sent')
-            self.logger.info("=== Имитация движения завершена, начало голосовой верификации ===")
+            if hasattr(self, '_stop_command_sent'):
+                delattr(self, '_stop_command_sent')
+            self.logger.info("=== Прибытие к клиенту, начало голосовой верификации ===")
             return
         
         # Фаза 3: Голосовая верификация
@@ -700,7 +703,7 @@ class StateMachine:
         
         elapsed = time.time() - self._voice_start_time
         
-        # Запрос кода через 7 секунд (3.1 сек движение + ~4 сек ожидание)
+        # Запрос кода через 7 секунд (3.9 сек движение + ~3 сек ожидание)
         if elapsed >= 7.0 and not self._code_requested:
             self._code_requested = True
             self._request_time = time.time()
