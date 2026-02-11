@@ -606,11 +606,17 @@ class StateMachine:
             import speech_recognition as sr
             
             recognizer = sr.Recognizer()
+            
+            # Используем микрофон по умолчанию
             with sr.Microphone() as source:
-                self.logger.info("Распознавание речи...")
-                recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                audio = recognizer.listen(source, timeout=10, phrase_time_limit=5)
+                self.logger.info("Настройка микрофона...")
+                recognizer.adjust_for_ambient_noise(source, duration=0.2)
                 
+                self.logger.info("Слушаю...")
+                # Короткий таймаут для теста
+                audio = recognizer.listen(source, timeout=2, phrase_time_limit=3)
+                
+                self.logger.info("Распознавание...")
                 # Распознавание через Google Speech Recognition
                 text = recognizer.recognize_google(audio, language='ru-RU')
                 self.logger.info(f"Распознан текст: {text}")
@@ -621,13 +627,22 @@ class StateMachine:
                 if digits:
                     code = ''.join(digits)
                     self.logger.info(f"Извлечен код: {code}")
-                    return 1111
+                    return code
                 
-                return 1111
+                return ""
                 
+        except sr.WaitTimeoutError:
+            self.logger.warning("Таймаут ожидания речи")
+            return ""
+        except sr.UnknownValueError:
+            self.logger.warning("Не удалось распознать речь")
+            return ""
+        except sr.RequestError as e:
+            self.logger.error(f"Ошибка сервиса распознавания: {e}")
+            return ""
         except Exception as e:
             self.logger.error(f"Ошибка распознавания речи: {e}")
-            return 1111
+            return ""
     
     def update_delivering_state(self) -> None:
         """
