@@ -601,6 +601,13 @@ class StateMachine:
             # Пересчитываем elapsed после сброса таймера
             elapsed = time.time() - self._loading_step_start
             
+            # Логирование каждую секунду
+            if not hasattr(self, '_loading_last_log'):
+                self._loading_last_log = 0
+            if int(elapsed) > self._loading_last_log:
+                self._loading_last_log = int(elapsed)
+                self.logger.info(f"Загрузка: {self._loading_last_log}/{config.LOADING_CONFIRMATION_TIMEOUT} сек")
+            
             # Ожидание таймаута загрузки
             if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
                 # Озвучка окончания загрузки
@@ -609,6 +616,8 @@ class StateMachine:
                 # Переход к фазе 4 (возврат к клиенту)
                 self._movement_phase = 4
                 self._loading_step_start = time.time()  # Сброс таймера для возврата
+                if hasattr(self, '_loading_last_log'):
+                    delattr(self, '_loading_last_log')
                 self.logger.info("=== Загрузка завершена, начало возврата к клиенту ===")
             return
         
