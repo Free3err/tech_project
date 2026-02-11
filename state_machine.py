@@ -382,6 +382,18 @@ class StateMachine:
         Повторяет сканирование пока человек в зоне видимости.
         После успешной проверки ждет 5 секунд перед переходом к LOADING.
         """
+        # Проверка задержки после отклонения заказа
+        if hasattr(self, '_rejection_delay_start'):
+            elapsed = time.time() - self._rejection_delay_start
+            if elapsed < self._rejection_delay_duration:
+                # Еще ждем
+                return
+            else:
+                # Задержка прошла, убираем флаги
+                delattr(self, '_rejection_delay_start')
+                delattr(self, '_rejection_delay_duration')
+                self.logger.info("Задержка завершена, готов к повторному сканированию")
+        
         # Проверка задержки перед переходом к LOADING
         if hasattr(self, '_loading_delay_start'):
             elapsed = time.time() - self._loading_delay_start
@@ -403,6 +415,11 @@ class StateMachine:
                 self.order_verifier.stop_scanning()
                 delattr(self, '_verifying_started')
                 self._verification_callback_received = False
+            
+            # Очистка флагов задержки если есть
+            if hasattr(self, '_rejection_delay_start'):
+                delattr(self, '_rejection_delay_start')
+                delattr(self, '_rejection_delay_duration')
             
             self.transition_to(State.WAITING)
             return
@@ -467,13 +484,15 @@ class StateMachine:
             # Остановка сканирования (безопасно из основного потока)
             self.order_verifier.stop_scanning()
             
-            # Сброс флагов для повторного сканирования
+            # Установка времени задержки перед повторным сканированием
+            self._rejection_delay_start = time.time()
+            self._rejection_delay_duration = 3.0  # 3 секунды задержки
+            
+            # Сброс флагов для повторного сканирования после задержки
             delattr(self, '_verifying_started')
             self._verification_callback_received = False
             
-            # Остаемся в VERIFYING - будет повторное сканирование
-            # Если человек ушел, update_verifying_state() вернет в WAITING
-            self.logger.info("Ожидание повторного сканирования QR кода")
+            self.logger.info("Ожидание 3 секунды перед повторным сканированием QR кода")
     
     def update_navigating_to_warehouse_state(self) -> None:
         """
@@ -622,7 +641,7 @@ class StateMachine:
                 
                 self.logger.info("Слушаю...")
                 # Слушаем без таймаута, записываем до первой паузы (макс 10 сек)
-                audio = recognizer.listen(source, phrase_time_limit=10)
+                audio = recognizer.listen(source, phrase_time_limit=7)
                 
                 self.logger.info("Распознавание...")
                 # Распознавание через Google Speech Recognition
@@ -692,19 +711,25 @@ class StateMachine:
                 self._greeting_played = True  # Помечаем как воспроизведенное чтобы не зависнуть
         
         # Переход в WAITING через 10 секунд
-        if elapsed >= 10.0:
-            self.logger.info("=== 10 секунд прошло, завершение доставки ===")
-            
-            # Очистка флагов
-            delattr(self, '_delivery_started')
-            delattr(self, '_delivery_start_time')
-            delattr(self, '_greeting_played')
-            delattr(self, '_last_log_time')
-            if hasattr(self, '_delivering_debug_logged'):
-                delattr(self, '_delivering_debug_logged')
-            
-            self.logger.info("Доставка завершена, возврат в режим ожидания")
-            self.transition_to(State.WAITING)
+        if elapsed >= 10.0 and not hasattr(self, '_waiting_delay_start'):
+            self.logger.info("=== 10 секунд прошло, ожидание 5 секунд перед возвратом в WAITING ===")
+            self._waiting_delay_start = time.time()
+        
+        # Возврат в WAITING через 5 секунд после завершения доставки
+        if hasattr(self, '_waiting_delay_start'):
+            delay_elapsed = time.time() - self._waiting_delay_start
+            if delay_elapsed >= 5.0:
+                # Очистка флагов
+                delattr(self, '_delivery_started')
+                delattr(self, '_delivery_start_time')
+                delattr(self, '_greeting_played')
+                delattr(self, '_last_log_time')
+                delattr(self, '_waiting_delay_start')
+                if hasattr(self, '_delivering_debug_logged'):
+                    delattr(self, '_delivering_debug_logged')
+                
+                self.logger.info("Доставка завершена, возврат в режим ожидания")
+                self.transition_to(State.WAITING)
     
     def update_resetting_state(self) -> None:
         """
