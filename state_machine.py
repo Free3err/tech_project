@@ -405,7 +405,7 @@ class StateMachine:
                     delattr(self, '_verifying_started')
                 self._verification_callback_received = False
                 
-                self.transition_to(State.WAITING)
+                self.transition_to(State.VERIFYING)
                 return
         
         # Проверка задержки перед переходом к LOADING
