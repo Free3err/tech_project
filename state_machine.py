@@ -570,8 +570,11 @@ class StateMachine:
                 
                 if recognized_code == "1111":
                     # Код правильный
-                    self.logger.info("Голосовой код верный, переход к выдаче")
+                    self.logger.info("Голосовой код верный")
                     self.audio.announce_code_accepted()
+                    
+                    # Ждем 2 секунды чтобы аудио успело воспроизвестись
+                    time.sleep(2.0)
                     
                     # Очистка флагов
                     delattr(self, '_voice_verification_started')
@@ -581,6 +584,7 @@ class StateMachine:
                     delattr(self, '_listening')
                     delattr(self, '_listen_start_time')
                     
+                    self.logger.info("Переход к выдаче заказа")
                     self.transition_to(State.DELIVERING)
                 else:
                     # Код неправильный - повторный запрос
@@ -667,22 +671,39 @@ class StateMachine:
             self._delivery_start_time = time.time()
             self._greeting_played = False
             
-            self.logger.info("Начало выдачи, ожидание 5 секунд")
+            self.logger.info("=== DELIVERING STATE: Начало выдачи ===")
+            self.logger.info("Ожидание 5 секунд перед голосовым сообщением")
         
         elapsed = time.time() - self._delivery_start_time
         
+        # Логирование каждую секунду для отладки
+        if not hasattr(self, '_last_log_time'):
+            self._last_log_time = 0
+        
+        if int(elapsed) > self._last_log_time:
+            self._last_log_time = int(elapsed)
+            self.logger.info(f"DELIVERING: прошло {self._last_log_time} секунд")
+        
         # Воспроизведение голосового сообщения через 5 секунд
         if elapsed >= 5.0 and not self._greeting_played:
-            self.audio.greet_delivery()
-            self._greeting_played = True
-            self.logger.info("Голосовое сообщение воспроизведено")
+            self.logger.info("=== 5 секунд прошло, воспроизведение голосового сообщения ===")
+            try:
+                self.audio.greet_delivery()
+                self._greeting_played = True
+                self.logger.info("=== Голосовое сообщение воспроизведено успешно ===")
+            except Exception as e:
+                self.logger.error(f"Ошибка воспроизведения голосового сообщения: {e}")
+                self._greeting_played = True  # Помечаем как воспроизведенное чтобы не зависнуть
         
         # Переход в WAITING через 10 секунд
         if elapsed >= 10.0:
+            self.logger.info("=== 10 секунд прошло, завершение доставки ===")
+            
             # Очистка флагов
             delattr(self, '_delivery_started')
             delattr(self, '_delivery_start_time')
             delattr(self, '_greeting_played')
+            delattr(self, '_last_log_time')
             
             self.logger.info("Доставка завершена, возврат в режим ожидания")
             self.transition_to(State.WAITING)
