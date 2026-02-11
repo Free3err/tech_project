@@ -529,11 +529,11 @@ class StateMachine:
         - Озвучивает окончание загрузки
         - Переход к голосовой верификации
         """
-        serial.send_motor_command(140, 140, 0, 1)
+        self.serial.send_motor_command(140, 140, 0, 1)
         time.sleep(1100)
-        serial.send_motor_command(140, 140, 1, 1)
+        self.serial.send_motor_command(140, 140, 1, 1)
         time.sleep(2000)
-        serial.send_motor_command(0, 0, 1, 1)
+        self.serial.send_motor_command(0, 0, 1, 1)
 
         if not hasattr(self, '_loading_started'):
             self._loading_started = True
@@ -580,12 +580,12 @@ class StateMachine:
         - Если неправильно -> повторный запрос
         """
 
-        serial.send_motor_command(140, 140, 0, 1)
+        self.serial.send_motor_command(140, 140, 0, 1)
         time.sleep(1100)
-        serial.send_motor_command(140, 140, 1, 1)
+        self.serial.send_motor_command(140, 140, 1, 1)
         time.sleep(2000)
-        serial.send_motor_command(0, 0, 1, 1)
-        
+        self.serial.send_motor_command(0, 0, 1, 1)
+
         if not hasattr(self, '_voice_verification_started'):
             self._voice_verification_started = True
             self._voice_start_time = time.time()
