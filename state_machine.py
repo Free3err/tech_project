@@ -620,9 +620,9 @@ class StateMachine:
                 self.logger.info("Настройка микрофона...")
                 recognizer.adjust_for_ambient_noise(source, duration=0.5)
                 
-                self.logger.info("Слушаю...")
-                # Ждем начала речи до 8 секунд, фраза до 5 секунд
-                audio = recognizer.listen(source, timeout=8, phrase_time_limit=10)
+                self.logger.info("Слушаю 10 секунд...")
+                # Слушаем 10 секунд без таймаута на начало речи
+                audio = recognizer.listen(source, timeout=None, phrase_time_limit=10)
                 
                 self.logger.info("Распознавание...")
                 # Распознавание через Google Speech Recognition
