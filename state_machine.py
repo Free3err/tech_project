@@ -514,55 +514,35 @@ class StateMachine:
         Обновление состояния DELIVERING
         
         Выдача посылки клиенту:
-        - Воспроизведение аудио приветствия
-        - Открытие серво на BOX_OPEN_ANGLE
-        - Ожидание таймаута из конфига (DELIVERY_TIMEOUT)
-        - Закрытие: BOX_CLOSE_ANGLE_1, через BOX_CLOSE_DELAY BOX_CLOSE_ANGLE_2
+        - Ожидание 5 секунд
+        - Голосовое сообщение о выдаче
         - Ожидание 10 секунд
         - Переход в WAITING
         """
         if not hasattr(self, '_delivery_started'):
             self._delivery_started = True
-            self._delivery_step = 0
-            self._delivery_step_start = time.time()
+            self._delivery_start_time = time.time()
+            self._greeting_played = False
             
-            # Приветствие клиента
+            self.logger.info("Начало выдачи, ожидание 5 секунд")
+        
+        elapsed = time.time() - self._delivery_start_time
+        
+        # Воспроизведение голосового сообщения через 5 секунд
+        if elapsed >= 5.0 and not self._greeting_played:
             self.audio.greet_delivery()
+            self._greeting_played = True
+            self.logger.info("Голосовое сообщение воспроизведено")
+        
+        # Переход в WAITING через 10 секунд
+        if elapsed >= 10.0:
+            # Очистка флагов
+            delattr(self, '_delivery_started')
+            delattr(self, '_delivery_start_time')
+            delattr(self, '_greeting_played')
             
-            # Открытие серво
-            self.serial.send_servo_command(config.BOX_OPEN_ANGLE)
-            self.logger.info(f"Открытие коробки для выдачи ({config.BOX_OPEN_ANGLE}°)")
-        
-        elapsed = time.time() - self._delivery_step_start
-        
-        if self._delivery_step == 0:
-            # Ожидание таймаута выдачи
-            if elapsed >= config.DELIVERY_TIMEOUT:
-                self._delivery_step = 1
-                self._delivery_step_start = time.time()
-                # Закрытие: первый этап
-                self.serial.send_servo_command(config.BOX_CLOSE_ANGLE_1)
-                self.logger.info(f"Закрытие коробки: этап 1 ({config.BOX_CLOSE_ANGLE_1}°)")
-        
-        elif self._delivery_step == 1:
-            # Ожидание перед вторым этапом закрытия
-            if elapsed >= config.BOX_CLOSE_DELAY:
-                self._delivery_step = 2
-                self._delivery_step_start = time.time()
-                # Закрытие: второй этап
-                self.serial.send_servo_command(config.BOX_CLOSE_ANGLE_2)
-                self.logger.info(f"Закрытие коробки: этап 2 ({config.BOX_CLOSE_ANGLE_2}°)")
-        
-        elif self._delivery_step == 2:
-            # Ожидание 10 секунд перед возвратом в WAITING
-            if elapsed >= 10.0:
-                # Очистка флагов
-                delattr(self, '_delivery_started')
-                delattr(self, '_delivery_step')
-                delattr(self, '_delivery_step_start')
-                
-                self.logger.info("Доставка завершена, возврат в режим ожидания")
-                self.transition_to(State.WAITING)
+            self.logger.info("Доставка завершена, возврат в режим ожидания")
+            self.transition_to(State.WAITING)
     
     def update_resetting_state(self) -> None:
         """
