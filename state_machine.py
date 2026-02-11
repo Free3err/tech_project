@@ -382,26 +382,35 @@ class StateMachine:
         Повторяет сканирование пока человек в зоне видимости.
         После успешной проверки ждет 5 секунд перед переходом к LOADING.
         """
+        # Отладочный лог
+        self.logger.debug(f"VERIFYING: _verifying_started={hasattr(self, '_verifying_started')}, "
+                         f"_rejection_delay_start={hasattr(self, '_rejection_delay_start')}, "
+                         f"_loading_delay_start={hasattr(self, '_loading_delay_start')}")
+        
         # Проверка задержки после отклонения заказа
         if hasattr(self, '_rejection_delay_start'):
             elapsed = time.time() - self._rejection_delay_start
             if elapsed < self._rejection_delay_duration:
                 # Еще ждем
+                self.logger.debug(f"Ожидание задержки: {elapsed:.1f}/{self._rejection_delay_duration}с")
                 return
             else:
                 # Задержка прошла, убираем флаги и перезапускаем сканирование
+                self.logger.info("=== Задержка завершена, сброс флагов ===")
                 delattr(self, '_rejection_delay_start')
                 delattr(self, '_rejection_delay_duration')
                 
                 # Сбрасываем флаги для перезапуска
                 if hasattr(self, '_verifying_started'):
                     delattr(self, '_verifying_started')
+                    self.logger.info("Удален флаг _verifying_started")
                 self._verification_callback_received = False
+                self.logger.info("Сброшен флаг _verification_callback_received")
                 
                 if hasattr(self, '_need_restart_scanning'):
                     delattr(self, '_need_restart_scanning')
                 
-                self.logger.info("Задержка завершена, перезапуск сканирования")
+                self.logger.info("=== Перезапуск сканирования на следующей итерации ===")
         
         # Проверка задержки перед переходом к LOADING
         if hasattr(self, '_loading_delay_start'):
@@ -435,17 +444,24 @@ class StateMachine:
         
         # Проверка, был ли уже запущен процесс сканирования
         if not hasattr(self, '_verifying_started'):
+            self.logger.info("=== Запуск нового сканирования ===")
             self._verifying_started = True
             self._verification_callback_received = False
             
             # Воспроизведение запроса QR кода только если не было недавнего отклонения
             if not hasattr(self, '_rejection_delay_start'):
+                self.logger.info("Воспроизведение запроса QR кода")
                 self.audio.request_qr_code()
+            else:
+                self.logger.info("Пропуск запроса QR (идет задержка после отклонения)")
             
             # Запуск сканирования QR кода с callback
+            self.logger.info("Вызов order_verifier.start_scanning()")
             self.order_verifier.start_scanning(self._on_qr_scan_result)
             
-            self.logger.info("Запущено сканирование QR кода")
+            self.logger.info("=== Сканирование QR кода запущено ===")
+        else:
+            self.logger.debug("Сканирование уже запущено, ожидание результата")
         
         # Ожидание результата сканирования (callback установит флаг)
         # Таймаут обрабатывается через _check_state_timeout()
