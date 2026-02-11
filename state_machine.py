@@ -519,150 +519,149 @@ class StateMachine:
         """
         pass
     
-    def update_loading_state(self) -> None:
-            """
-            Обновление состояния LOADING
+def update_loading_state(self) -> None:
+        """
+        Обновление состояния LOADING
+        
+        Погрузка:
+        - Фаза 0: Поворот к складу
+        - Фаза 1: Движение к складу
+        - Фаза 2: Остановка
+        - Фаза 3: Ожидание загрузки (LOADING_CONFIRMATION_TIMEOUT)
+        - Фаза 4: Движение обратно к клиенту (инверсия Фазы 1)
+        - Фаза 5: Поворот в исходное положение (инверсия Фазы 0)
+        - Фаза 6: Завершение
+        """
+        if not hasattr(self, '_loading_started'):
+            self._loading_started = True
+            self._loading_step_start = time.time()
+            self._movement_phase = 0
+            self.logger.info("=== LOADING: Начало имитации движения на склад ===")
+        
+        elapsed = time.time() - self._loading_step_start
+        
+        # --- ДВИЖЕНИЕ НА СКЛАД ---
+        
+        # Фаза 0: Поворот назад (0-1.9 сек)
+        if self._movement_phase == 0:
+            if elapsed < 0.1:
+                if not hasattr(self, '_turn_command_sent'):
+                    # Поворот (левый мотор назад, правый вперед) или наоборот, как настроено
+                    self.serial.send_motor_command(140, 140, 0, 1)
+                    self._turn_command_sent = True
+                    self.logger.info("Имитация: поворот назад к складу")
+                return
+            elif elapsed >= 1.9:
+                self._movement_phase = 1
+                self._loading_step_start = time.time() # Сброс таймера
+                if hasattr(self, '_turn_command_sent'):
+                    delattr(self, '_turn_command_sent')
+                self.logger.info("Имитация: поворот завершен")
+                return
 
-            Погрузка:
-            - Имитация движения на склад (поворот назад + движение назад)
-            - Произносит номер заказа
-            - Ждет таймаут из конфига
-            - Озвучивает окончание загрузки
-            - Имитация возвращения к клиенту
-            - Переход к голосовой верификации
-            """
-            if not hasattr(self, '_loading_started'):
-                self._loading_started = True
+        # Фаза 1: Движение назад (или вперед вглубь склада)
+        elif self._movement_phase == 1:
+            if elapsed < 0.1:
+                if not hasattr(self, '_backward_command_sent'):
+                    # Движение (1, 1 - это вперед в текущей ориентации)
+                    self.serial.send_motor_command(140, 140, 1, 1)
+                    self._backward_command_sent = True
+                    self.logger.info("Имитация: движение к складу")
+                return
+            elif elapsed >= 2.0: # Длительность движения
+                self._movement_phase = 2
                 self._loading_step_start = time.time()
-                self._movement_phase = 0  # 0: поворот назад, 1: движение назад, 2: остановка, 3: загрузка, 4-6: возврат
+                if hasattr(self, '_backward_command_sent'):
+                    delattr(self, '_backward_command_sent')
+                self.logger.info("Имитация: движение завершено")
+                return
 
-                self.logger.info("=== LOADING: Начало имитации движения на склад ===")
-
-            elapsed = time.time() - self._loading_step_start
-
-            # Фаза 0: Поворот назад (0-1.9 сек)
-            if self._movement_phase == 0:
-                if elapsed < 0.1:
-                    if not hasattr(self, '_turn_command_sent'):
-                        self.serial.send_motor_command(140, 140, 0, 1)
-                        self._turn_command_sent = True
-                        self.logger.info("Имитация: поворот назад к складу")
-                    return
-                elif elapsed >= 1.9:
-                    self._movement_phase = 1
-                    if hasattr(self, '_turn_command_sent'):
-                        delattr(self, '_turn_command_sent')
-                    self.logger.info("Имитация: поворот завершен")
-                    return
-                else:
-                    return
-
-            # Фаза 1: Движение назад (1.9-3.9 сек)
-            if self._movement_phase == 1:
-                if elapsed < 2.0:
-                    if not hasattr(self, '_backward_command_sent'):
-                        self.serial.send_motor_command(140, 140, 1, 1)
-                        self._backward_command_sent = True
-                        self.logger.info("Имитация: движение назад к складу")
-                    return
-                elif elapsed >= 3.9:
-                    self._movement_phase = 2
-                    if hasattr(self, '_backward_command_sent'):
-                        delattr(self, '_backward_command_sent')
-                    self.logger.info("Имитация: движение завершено")
-                    return
-                else:
-                    return
-
-            # Фаза 2: Остановка (3.9 сек)
-            if self._movement_phase == 2:
-                if not hasattr(self, '_stop_command_sent'):
-                    self.serial.send_motor_command(0, 0, 1, 1)
-                    self._stop_command_sent = True
-                    self.logger.info("Имитация: остановка на складе")
-                self._movement_phase = 3
-                if hasattr(self, '_stop_command_sent'):
-                    delattr(self, '_stop_command_sent')
-
-                if self.context.current_order_id is not None:
-                    self.audio.announce_order_number(self.context.current_order_id)
-
+        # Фаза 2: Остановка на складе
+        elif self._movement_phase == 2:
+            if not hasattr(self, '_stop_command_sent'):
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self._stop_command_sent = True
+                self.logger.info("Имитация: остановка на складе")
+            
+            # Сразу переходим к ожиданию, но сначала озвучиваем номер
+            if self.context.current_order_id is not None:
+                self.audio.announce_order_number(self.context.current_order_id)
+            
+            self._movement_phase = 3
+            self._loading_step_start = time.time()
+            if hasattr(self, '_stop_command_sent'):
+                delattr(self, '_stop_command_sent')
+            self.logger.info(f"=== Прибытие, ожидание загрузки ({config.LOADING_CONFIRMATION_TIMEOUT}с) ===")
+            return
+        
+        # Фаза 3: Процесс загрузки (ожидание)
+        elif self._movement_phase == 3:
+            # Логирование прогресса
+            if not hasattr(self, '_loading_last_log'):
+                self._loading_last_log = 0
+            if int(elapsed) > self._loading_last_log:
+                self._loading_last_log = int(elapsed)
+                self.logger.info(f"Загрузка: {self._loading_last_log}/{config.LOADING_CONFIRMATION_TIMEOUT} сек")
+            
+            if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
+                self.audio.announce_loading_complete()
+                
+                # ПЕРЕХОД К ВОЗВРАТУ
+                self._movement_phase = 4
                 self._loading_step_start = time.time()
-                self.logger.info(f"=== Прибытие на склад, начало загрузки ({config.LOADING_CONFIRMATION_TIMEOUT}с) ===")
+                if hasattr(self, '_loading_last_log'):
+                    delattr(self, '_loading_last_log')
+                self.logger.info("=== Загрузка завершена, ВОЗВРАТ к клиенту ===")
+            return
+
+        # --- ВОЗВРАТ К КЛИЕНТУ ---
+
+        # Фаза 4: Движение обратно (инверсия Фазы 1)
+        elif self._movement_phase == 4:
+            if elapsed < 0.1:
+                if not hasattr(self, '_return_move_sent'):
+                    # Инвертируем направление: было (1,1), стало (0,0) - движение назад
+                    self.serial.send_motor_command(140, 140, 0, 0)
+                    self._return_move_sent = True
+                    self.logger.info("Возврат: движение от склада")
+                return
+            elif elapsed >= 2.0: # То же время, что и в фазе 1
+                self._movement_phase = 5
+                self._loading_step_start = time.time()
+                if hasattr(self, '_return_move_sent'):
+                    delattr(self, '_return_move_sent')
+                self.logger.info("Возврат: движение завершено")
                 return
 
-            # Фаза 3: Загрузка
-            if self._movement_phase == 3:
-                elapsed = time.time() - self._loading_step_start
-
-                if not hasattr(self, '_loading_last_log'):
-                    self._loading_last_log = 0
-                if int(elapsed) > self._loading_last_log:
-                    self._loading_last_log = int(elapsed)
-                    self.logger.info(f"Загрузка: {self._loading_last_log}/{config.LOADING_CONFIRMATION_TIMEOUT} сек")
-
-                if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
-                    self.audio.announce_loading_complete()
-
-                    self._movement_phase = 4
-                    self._loading_step_start = time.time()
-                    if hasattr(self, '_loading_last_log'):
-                        delattr(self, '_loading_last_log')
-                    self.logger.info("=== Загрузка завершена, начало возврата к клиенту ===")
+        # Фаза 5: Разворот обратно (инверсия Фазы 0)
+        elif self._movement_phase == 5:
+            if elapsed < 0.1:
+                if not hasattr(self, '_return_turn_sent'):
+                    # Инвертируем поворот: было (0,1), стало (1,0)
+                    self.serial.send_motor_command(140, 140, 1, 0)
+                    self._return_turn_sent = True
+                    self.logger.info("Возврат: разворот к клиенту")
+                return
+            elif elapsed >= 1.9: # То же время, что и в фазе 0
+                self._movement_phase = 6
+                self._loading_step_start = time.time()
+                if hasattr(self, '_return_turn_sent'):
+                    delattr(self, '_return_turn_sent')
+                
+                # Останавливаемся
+                self.serial.send_motor_command(0, 0, 1, 1)
+                self.logger.info("Возврат: разворот завершен, остановка")
                 return
 
-            # Фаза 4: Поворот к клиенту (0-1.9 сек)
-            if self._movement_phase == 4:
-                elapsed = time.time() - self._loading_step_start
-                if elapsed < 0.1:
-                    if not hasattr(self, '_return_turn_sent'):
-                        self.serial.send_motor_command(140, 140, 0, 1)
-                        self._return_turn_sent = True
-                        self.logger.info("Имитация: поворот к клиенту")
-                    return
-                elif elapsed >= 1.9:
-                    self._movement_phase = 5
-                    if hasattr(self, '_return_turn_sent'):
-                        delattr(self, '_return_turn_sent')
-                    self.logger.info("Имитация: поворот к клиенту завершен")
-                    return
-                else:
-                    return
-
-            # Фаза 5: Движение к клиенту (1.9-3.9 сек)
-            if self._movement_phase == 5:
-                elapsed = time.time() - self._loading_step_start
-                if elapsed < 2.0:
-                    if not hasattr(self, '_return_forward_sent'):
-                        self.serial.send_motor_command(140, 140, 1, 0)
-                        self._return_forward_sent = True
-                        self.logger.info("Имитация: движение к клиенту")
-                    return
-                elif elapsed >= 3.9:
-                    self._movement_phase = 6
-                    if hasattr(self, '_return_forward_sent'):
-                        delattr(self, '_return_forward_sent')
-                    self.logger.info("Имитация: движение к клиенту завершено")
-                    return
-                else:
-                    return
-
-            # Фаза 6: Остановка у клиента
-            if self._movement_phase == 6:
-                if not hasattr(self, '_return_stop_sent'):
-                    self.serial.send_motor_command(0, 0, 1, 0)
-                    self._return_stop_sent = True
-                    self.logger.info("Имитация: остановка у клиента")
-
-                delattr(self, '_loading_started')
-                delattr(self, '_loading_step_start')
-                delattr(self, '_movement_phase')
-                if hasattr(self, '_return_stop_sent'):
-                    delattr(self, '_return_stop_sent')
-
-                self.logger.info("Возврат к клиенту завершен, переход к голосовой верификации")
-                self.transition_to(State.VOICE_VERIFICATION)
-                return
+        # Фаза 6: Завершение и переход
+        elif self._movement_phase == 6:
+            # Очистка всех флагов
+            if hasattr(self, '_loading_started'): delattr(self, '_loading_started')
+            if hasattr(self, '_loading_step_start'): delattr(self, '_loading_step_start')
+            if hasattr(self, '_movement_phase'): delattr(self, '_movement_phase')
+            
+            self.logger.info("Цикл загрузки и возврата завершен. Переход к VOICE_VERIFICATION")
+            self.transition_to(State.VOICE_VERIFICATION)
 
     
     def update_returning_to_customer_state(self) -> None:
@@ -674,93 +673,96 @@ class StateMachine:
         pass
     
     def update_voice_verification_state(self) -> None:
-        """
-        Обновление состояния VOICE_VERIFICATION
-        
-        Голосовая верификация кода перед выдачей:
-        - Запрашивает код голосом
-        - Слушает и распознает речь
-        - Проверяет код (тестовый: "2245")
-        - Если правильно -> DELIVERING
-        - Если неправильно -> повторный запрос
-        """
-        if not hasattr(self, '_voice_verification_started'):
-            self._voice_verification_started = True
-            self._voice_start_time = time.time()
-            self._code_requested = False
-            self._listening = False
+            """
+            Обновление состояния VOICE_VERIFICATION
             
-            self.logger.info("=== VOICE_VERIFICATION: Начало голосовой верификации ===")
-        
-        elapsed = time.time() - self._voice_start_time
-        
-        # Запрос кода через 2 секунды
-        if elapsed >= 2.0 and not self._code_requested:
-            self._code_requested = True
-            self._request_time = time.time()
-            
-            # Запрос кода
-            self.audio.request_voice_code()
-            self.logger.info("Запрос голосового кода")
-        
-        # Начинаем слушать через 2 секунды после запроса (после озвучки)
-        if self._code_requested and not self._listening:
-            request_elapsed = time.time() - self._request_time
-            if request_elapsed >= 2.0:
-                self._listening = True
-                self._listen_start_time = time.time()
-                self.logger.info("Начало прослушивания голосового кода (10 секунд)")
-        
-        # Слушаем 10 секунд
-        if self._listening:
-            listen_elapsed = time.time() - self._listen_start_time
+            Исправлено: Распознавание теперь работает в отдельном потоке, 
+            чтобы не блокировать основной цикл (update) во время прослушивания.
+            """
+            import threading
 
-
+            if not hasattr(self, '_voice_verification_started'):
+                self._voice_verification_started = True
+                self._voice_start_time = time.time()
+                self._code_requested = False
+                self._recognition_launched = False # Флаг запуска потока
+                
+                self.logger.info("=== VOICE_VERIFICATION: Начало голосовой верификации ===")
             
-            if listen_elapsed >= 4.0:
-                # Распознавание речи
-                recognized_code = self._recognize_voice_code()
+            elapsed = time.time() - self._voice_start_time
+            
+            # 1. Запрос кода (через 2 секунды)
+            if elapsed >= 2.0 and not self._code_requested:
+                self._code_requested = True
+                self._request_time = time.time()
+                self.audio.request_voice_code()
+                self.logger.info("Запрос голосового кода")
+            
+            # 2. Ожидание окончания фразы робота и запуск потока распознавания
+            if self._code_requested:
+                request_elapsed = time.time() - self._request_time
+                
+                # Начинаем слушать через 2 секунды после запроса
+                if request_elapsed >= 2.0 and not self._recognition_launched:
+                    self._recognition_launched = True
+                    self.logger.info("Запуск потока распознавания речи...")
+                    
+                    # Запускаем распознавание в отдельном потоке!
+                    self._recognition_thread = threading.Thread(
+                        target=self._run_recognition_thread_wrapper,
+                        daemon=True
+                    )
+                    self._recognition_thread.start()
+            
+            # 3. Проверка результата (в каждом цикле update)
+            if hasattr(self, '_recognition_result_data'):
+                # Результат получен из потока
+                recognized_code = self._recognition_result_data
+                
+                # Удаляем данные, чтобы не обработать их дважды
+                delattr(self, '_recognition_result_data')
                 
                 if recognized_code == "2245":
-                    # Код правильный
-                    self.logger.info("Голосовой код верный")
+                    # --- УСПЕХ ---
+                    self.logger.info(f"Голосовой код верный: {recognized_code}")
                     self.audio.announce_code_accepted()
                     
-                    # Очистка флагов и потока распознавания
-                    delattr(self, '_voice_verification_started')
-                    delattr(self, '_voice_start_time')
-                    delattr(self, '_code_requested')
-                    delattr(self, '_request_time')
-                    delattr(self, '_listening')
-                    delattr(self, '_listen_start_time')
-                    
-                    # Очистка потока распознавания если есть
-                    if hasattr(self, '_recognition_thread'):
-                        self.logger.info("Очистка потока распознавания")
-                        delattr(self, '_recognition_thread')
-                    if hasattr(self, '_recognition_result'):
-                        delattr(self, '_recognition_result')
+                    # Очистка флагов
+                    self._cleanup_voice_flags()
                     
                     self.logger.info("Переход к выдаче заказа")
                     self.transition_to(State.DELIVERING)
                 else:
-                    # Код неправильный - повторный запрос
-                    self.logger.warning(f"Голосовой код неверный: {recognized_code}")
+                    # --- ОШИБКА ---
+                    self.logger.warning(f"Голосовой код неверный или не распознан: '{recognized_code}'")
                     self.audio.announce_code_rejected()
                     
-                    # Сброс для повторной попытки
-                    delattr(self, '_voice_verification_started')
-                    delattr(self, '_voice_start_time')
-                    delattr(self, '_code_requested')
-                    delattr(self, '_request_time')
-                    delattr(self, '_listening')
-                    delattr(self, '_listen_start_time')
+                    # Полный сброс для повторной попытки
+                    self._cleanup_voice_flags()
                     
-                    # Очистка потока распознавания если есть
-                    if hasattr(self, '_recognition_thread'):
-                        delattr(self, '_recognition_thread')
-                    if hasattr(self, '_recognition_result'):
-                        delattr(self, '_recognition_result')
+                    # Удаляем главный флаг старта, чтобы логика началась сначала (запрос кода -> слушание)
+                    delattr(self, '_voice_verification_started')
+                    
+        def _cleanup_voice_flags(self):
+            """Вспомогательный метод очистки флагов голоса"""
+            if hasattr(self, '_voice_verification_started'): delattr(self, '_voice_verification_started')
+            if hasattr(self, '_voice_start_time'): delattr(self, '_voice_start_time')
+            if hasattr(self, '_code_requested'): delattr(self, '_code_requested')
+            if hasattr(self, '_request_time'): delattr(self, '_request_time')
+            if hasattr(self, '_recognition_launched'): delattr(self, '_recognition_launched')
+            if hasattr(self, '_recognition_thread'): delattr(self, '_recognition_thread')
+
+    def _run_recognition_thread_wrapper(self):
+        """
+        Обертка для запуска распознавания в потоке.
+        Результат сохраняется в self._recognition_result_data
+        """
+        try:
+            code = self._recognize_voice_code() # Этот метод блокирует, но теперь он в потоке
+            self._recognition_result_data = code
+        except Exception as e:
+            self.logger.error(f"Ошибка в потоке распознавания: {e}")
+            self._recognition_result_data = ""
     
     def _recognize_voice_code(self) -> str:
         """
