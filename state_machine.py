@@ -478,50 +478,28 @@ class StateMachine:
         
         Погрузка:
         - Произносит номер заказа
-        - Открывает серво на BOX_OPEN_ANGLE
         - Ждет таймаут из конфига
-        - Закрывает: BOX_CLOSE_ANGLE_1, через BOX_CLOSE_DELAY BOX_CLOSE_ANGLE_2
         """
         if not hasattr(self, '_loading_started'):
             self._loading_started = True
-            self._loading_step = 0
             self._loading_step_start = time.time()
             
-            # Произносит номер заказа (пропускаем если аудио недоступно)
-            if self.audio and self.context.current_order_id is not None:
-                try:
-                    self.audio.announce_order_number(self.context.current_order_id)
-                except Exception as e:
-                    self.logger.warning(f"Ошибка воспроизведения номера заказа: {e}")
+            # Произносит номер заказа
+            if self.context.current_order_id is not None:
+                self.audio.announce_order_number(self.context.current_order_id)
             
-            # Открытие серво
-            self.logger.info(f"Открытие коробки для загрузки ({config.BOX_OPEN_ANGLE}°)")
+            self.logger.info(f"Ожидание загрузки ({config.LOADING_CONFIRMATION_TIMEOUT}с)")
         
         elapsed = time.time() - self._loading_step_start
         
-        if self._loading_step == 0:
-            # Ожидание таймаута загрузки
-            if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
-                self._loading_step = 1
-                self._loading_step_start = time.time()
-                # Закрытие: первый этап
-                self.serial.send_servo_command(config.BOX_CLOSE_ANGLE_1)
-                self.logger.info(f"Закрытие коробки: этап 1 ({config.BOX_CLOSE_ANGLE_1}°)")
-        
-        elif self._loading_step == 1:
-            # Ожидание перед вторым этапом закрытия
-            if elapsed >= config.BOX_CLOSE_DELAY:
-                # Закрытие: второй этап
-                self.serial.send_servo_command(config.BOX_CLOSE_ANGLE_2)
-                self.logger.info(f"Закрытие коробки: этап 2 ({config.BOX_CLOSE_ANGLE_2}°)")
-                
-                # Очистка флагов
-                delattr(self, '_loading_started')
-                delattr(self, '_loading_step')
-                delattr(self, '_loading_step_start')
-                
-                self.logger.info("Загрузка завершена, переход к доставке")
-                self.transition_to(State.DELIVERING)
+        # Ожидание таймаута загрузки
+        if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
+            # Очистка флагов
+            delattr(self, '_loading_started')
+            delattr(self, '_loading_step_start')
+            
+            self.logger.info("Загрузка завершена, переход к доставке")
+            self.transition_to(State.DELIVERING)
     
     def update_returning_to_customer_state(self) -> None:
         """
