@@ -520,81 +520,9 @@ class StateMachine:
         """
         Обновление состояния NAVIGATING_TO_WAREHOUSE
         
-        Движение на склад:
-        1. 2 секунды назад (скорость 140)
-        2. Поворот направо 90°
-        3. 1.5 секунды вперед
-        4. Переход к LOADING
+        Пустое состояние - ничего не делает.
         """
-        if not hasattr(self, '_warehouse_nav_started'):
-            self._warehouse_nav_started = True
-            self._warehouse_nav_step = 1
-            self._warehouse_nav_step_start = time.time()
-            self._warehouse_command_sent = False
-            self.logger.info("=== Начало движения на склад ===")
-        
-        elapsed = time.time() - self._warehouse_nav_step_start
-        
-        try:
-            if self._warehouse_nav_step == 1:
-                # Шаг 1: Движение назад 2 секунды
-                if not self._warehouse_command_sent:
-                    self.logger.info("Шаг 1: начало движения назад")
-                    self.serial.send_motor_command(140, 140, 0, 0)
-                    self._warehouse_command_sent = True
-                
-                if elapsed >= 2.0:
-                    # Остановка
-                    self.serial.send_motor_command(0, 0, 1, 1)
-                    self.logger.info("Шаг 1 завершен: движение назад")
-                    self._warehouse_nav_step = 2
-                    self._warehouse_nav_step_start = time.time()
-                    self._warehouse_command_sent = False
-            
-            elif self._warehouse_nav_step == 2:
-                # Шаг 2: Поворот направо 90° (примерно 1 секунда)
-                if not self._warehouse_command_sent:
-                    self.logger.info("Шаг 2: начало поворота направо")
-                    self.serial.send_motor_command(140, 140, 1, 0)
-                    self._warehouse_command_sent = True
-                
-                if elapsed >= 1.0:
-                    # Остановка
-                    self.serial.send_motor_command(0, 0, 1, 1)
-                    self.logger.info("Шаг 2 завершен: поворот направо 90°")
-                    self._warehouse_nav_step = 3
-                    self._warehouse_nav_step_start = time.time()
-                    self._warehouse_command_sent = False
-            
-            elif self._warehouse_nav_step == 3:
-                # Шаг 3: Движение вперед 1.5 секунды
-                if not self._warehouse_command_sent:
-                    self.logger.info("Шаг 3: начало движения вперед")
-                    self.serial.send_motor_command(140, 140, 1, 1)
-                    self._warehouse_command_sent = True
-                
-                if elapsed >= 1.5:
-                    # Остановка
-                    self.serial.send_motor_command(0, 0, 1, 1)
-                    self.logger.info("Шаг 3 завершен: движение вперед")
-                    
-                    # Очистка флагов
-                    delattr(self, '_warehouse_nav_started')
-                    delattr(self, '_warehouse_nav_step')
-                    delattr(self, '_warehouse_nav_step_start')
-                    delattr(self, '_warehouse_command_sent')
-                    
-                    self.logger.info("=== Прибытие на склад, переход к LOADING ===")
-                    self.transition_to(State.LOADING)
-        
-        except Exception as e:
-            self.logger.error(f"Ошибка в NAVIGATING_TO_WAREHOUSE на шаге {self._warehouse_nav_step}: {e}")
-            # Остановка моторов
-            try:
-                self.serial.send_motor_command(0, 0, 1, 1)
-            except:
-                pass
-            raise
+        pass
     
     def update_loading_state(self) -> None:
         """
@@ -634,97 +562,9 @@ class StateMachine:
         """
         Обновление состояния RETURNING_TO_CUSTOMER
         
-        Возврат от склада к клиенту:
-        1. Поворот налево 180°
-        2. 1.5 секунды вперед
-        3. Поворот направо 90°
-        4. 2 секунды вперед
-        5. Переход к VOICE_VERIFICATION
+        Пустое состояние - ничего не делает.
         """
-        if not hasattr(self, '_return_nav_started'):
-            self._return_nav_started = True
-            self._return_nav_step = 1
-            self._return_nav_step_start = time.time()
-            self._return_command_sent = False
-            self.logger.info("=== Начало возврата к клиенту ===")
-        
-        elapsed = time.time() - self._return_nav_step_start
-        
-        try:
-            if self._return_nav_step == 1:
-                # Шаг 1: Поворот налево 180° (примерно 2 секунды)
-                if not self._return_command_sent:
-                    self.logger.info("Шаг 1: начало поворота налево 180°")
-                    self.serial.send_motor_command(140, 140, 0, 1)
-                    self._return_command_sent = True
-                
-                if elapsed >= 2.0:
-                    # Остановка
-                    self.serial.send_motor_command(0, 0, 1, 1)
-                    self.logger.info("Шаг 1 завершен: поворот налево 180°")
-                    self._return_nav_step = 2
-                    self._return_nav_step_start = time.time()
-                    self._return_command_sent = False
-            
-            elif self._return_nav_step == 2:
-                # Шаг 2: Движение вперед 1.5 секунды
-                if not self._return_command_sent:
-                    self.logger.info("Шаг 2: начало движения вперед")
-                    self.serial.send_motor_command(140, 140, 1, 1)
-                    self._return_command_sent = True
-                
-                if elapsed >= 1.5:
-                    # Остановка
-                    self.serial.send_motor_command(0, 0, 1, 1)
-                    self.logger.info("Шаг 2 завершен: движение вперед")
-                    self._return_nav_step = 3
-                    self._return_nav_step_start = time.time()
-                    self._return_command_sent = False
-            
-            elif self._return_nav_step == 3:
-                # Шаг 3: Поворот направо 90° (примерно 1 секунда)
-                if not self._return_command_sent:
-                    self.logger.info("Шаг 3: начало поворота направо 90°")
-                    self.serial.send_motor_command(140, 140, 1, 0)
-                    self._return_command_sent = True
-                
-                if elapsed >= 1.0:
-                    # Остановка
-                    self.serial.send_motor_command(0, 0, 1, 1)
-                    self.logger.info("Шаг 3 завершен: поворот направо 90°")
-                    self._return_nav_step = 4
-                    self._return_nav_step_start = time.time()
-                    self._return_command_sent = False
-            
-            elif self._return_nav_step == 4:
-                # Шаг 4: Движение вперед 2 секунды
-                if not self._return_command_sent:
-                    self.logger.info("Шаг 4: начало движения вперед")
-                    self.serial.send_motor_command(140, 140, 1, 1)
-                    self._return_command_sent = True
-                
-                if elapsed >= 2.0:
-                    # Остановка
-                    self.serial.send_motor_command(0, 0, 1, 1)
-                    self.logger.info("Шаг 4 завершен: движение вперед")
-                    
-                    # Очистка флагов
-                    delattr(self, '_return_nav_started')
-                    delattr(self, '_return_nav_step')
-                    delattr(self, '_return_nav_step_start')
-                    delattr(self, '_return_command_sent')
-                    
-                    self.logger.info("=== Возврат к клиенту завершен, переход к VOICE_VERIFICATION ===")
-                    self.transition_to(State.VOICE_VERIFICATION)
-        
-        except Exception as e:
-            self.logger.error(f"Ошибка в RETURNING_TO_CUSTOMER на шаге {self._return_nav_step}: {e}")
-            # Остановка моторов
-            try:
-                self.serial.send_motor_command(0, 0, 1, 1)
-            except:
-                pass
-            raise
+        pass
     
     def update_voice_verification_state(self) -> None:
         """
