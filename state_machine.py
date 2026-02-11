@@ -616,11 +616,11 @@ class StateMachine:
             # Используем микрофон камеры (устройство 1)
             with sr.Microphone(device_index=1) as source:
                 self.logger.info("Настройка микрофона...")
-                recognizer.adjust_for_ambient_noise(source, duration=0.2)
+                recognizer.adjust_for_ambient_noise(source, duration=0.5)
                 
                 self.logger.info("Слушаю...")
-                # Короткий таймаут для теста
-                audio = recognizer.listen(source, timeout=2, phrase_time_limit=3)
+                # Ждем начала речи до 8 секунд, фраза до 5 секунд
+                audio = recognizer.listen(source, timeout=8, phrase_time_limit=5)
                 
                 self.logger.info("Распознавание...")
                 # Распознавание через Google Speech Recognition
