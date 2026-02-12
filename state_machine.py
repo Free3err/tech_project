@@ -620,49 +620,6 @@ class StateMachine:
                     delattr(self, '_loading_last_log')
                 self.logger.info("=== Загрузка завершена, возврат к пользователю ===")
             return
-
-        # --- ВОЗВРАТ К ПОЛЬЗОВАТЕЛЮ ---
-        
-        # Фаза 4: Движение обратно к клиенту (инверсия Фазы 1)
-        elif self._movement_phase == 4:
-            if elapsed < 0.1:
-                if not hasattr(self, '_return_command_sent'):
-                    # Движение назад (инверсия движения к складу)
-                    self.serial.send_motor_command(140, 140, 0, 0)
-                    self._return_command_sent = True
-                    self.logger.info("Имитация: движение обратно к клиенту")
-                return
-            elif elapsed >= 2.0: # Та же длительность, что и движение к складу
-                self._movement_phase = 5
-                self._loading_step_start = time.time()
-                if hasattr(self, '_return_command_sent'):
-                    delattr(self, '_return_command_sent')
-                self.logger.info("Имитация: возврат завершен")
-                return
-
-        # Фаза 5: Поворот в исходное положение (инверсия Фазы 0)
-        elif self._movement_phase == 5:
-            if elapsed < 0.1:
-                if not hasattr(self, '_return_turn_command_sent'):
-                    # Поворот обратно (инверсия поворота к складу)
-                    self.serial.send_motor_command(140, 140, 1, 0)
-                    self._return_turn_command_sent = True
-                    self.logger.info("Имитация: поворот в исходное положение")
-                return
-            elif elapsed >= 1.9:
-                self._movement_phase = 6
-                self._loading_step_start = time.time()
-                if hasattr(self, '_return_turn_command_sent'):
-                    delattr(self, '_return_turn_command_sent')
-                self.logger.info("Имитация: поворот завершен")
-                return
-
-        # Фаза 6: Завершение - остановка и переход к голосовой верификации
-        elif self._movement_phase == 6:
-            if not hasattr(self, '_final_stop_sent'):
-                self.serial.send_motor_command(0, 0, 1, 1)
-                self._final_stop_sent = True
-                self.logger.info("Имитация: финальная остановка перед верификацией")
             
             # Очистка флагов
             if hasattr(self, '_loading_started'): 
