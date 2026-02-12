@@ -614,25 +614,19 @@ class StateMachine:
             
             if elapsed >= config.LOADING_CONFIRMATION_TIMEOUT:
                 self.audio.announce_loading_complete()
-                self._movement_phase = 4
-                self._loading_step_start = time.time()
+                
+                # Очистка флагов
+                if hasattr(self, '_loading_started'): 
+                    delattr(self, '_loading_started')
+                if hasattr(self, '_loading_step_start'): 
+                    delattr(self, '_loading_step_start')
+                if hasattr(self, '_movement_phase'): 
+                    delattr(self, '_movement_phase')
                 if hasattr(self, '_loading_last_log'):
                     delattr(self, '_loading_last_log')
-                self.logger.info("=== Загрузка завершена, возврат к пользователю ===")
-            return
-            
-            # Очистка флагов
-            if hasattr(self, '_loading_started'): 
-                delattr(self, '_loading_started')
-            if hasattr(self, '_loading_step_start'): 
-                delattr(self, '_loading_step_start')
-            if hasattr(self, '_movement_phase'): 
-                delattr(self, '_movement_phase')
-            if hasattr(self, '_final_stop_sent'):
-                delattr(self, '_final_stop_sent')
-            
-            self.logger.info("=== Возврат завершен, переход к голосовой верификации ===")
-            self.transition_to(State.VOICE_VERIFICATION)
+                
+                self.logger.info("=== Загрузка завершена, переход к голосовой верификации ===")
+                self.transition_to(State.VOICE_VERIFICATION)
             return
 
     
